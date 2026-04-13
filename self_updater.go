@@ -33,7 +33,7 @@ func init() {
 	go func() {
 		Log.Debug("Checking for Installer Updates...")
 
-		res, err := GetGithubRelease(InstallerReleaseUrl, InstallerReleaseUrlFallback)
+		res, err := GetGithubRelease(InstallerReleaseUrl)
 		if err != nil {
 			Log.Warn("Failed to check for self updates:", err)
 			SelfUpdateCheckDoneChan <- false
