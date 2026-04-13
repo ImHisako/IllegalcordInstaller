@@ -36,7 +36,7 @@ var InstalledHash = "None"
 var LatestHash = "Unknown"
 var IsDevInstall bool
 
-func GetGithubRelease(url, fallbackUrl string) (*GithubRelease, error) {
+func GetGithubRelease(url string) (*GithubRelease, error) {
 	Log.Debug("Fetching", url)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -56,14 +56,6 @@ func GetGithubRelease(url, fallbackUrl string) (*GithubRelease, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode >= 300 {
-		isRateLimitedOrBlocked := res.StatusCode == 401 || res.StatusCode == 403 || res.StatusCode == 429
-		triedFallback := url == fallbackUrl
-
-		if isRateLimitedOrBlocked && !triedFallback {
-			Log.Error(fmt.Sprintf("Failed to fetch %s (status code %d). Trying fallback url %s", url, res.StatusCode, fallbackUrl))
-			return GetGithubRelease(fallbackUrl, fallbackUrl)
-		}
-
 		err = errors.New(res.Status)
 		Log.Error(url, "returned Non-OK status", GithubError)
 		return nil, err
@@ -95,7 +87,7 @@ func InitGithubDownloader() {
 			GithubDoneChan <- GithubError == nil
 		}()
 
-		data, err := GetGithubRelease(ReleaseUrl, ReleaseUrlFallback)
+		data, err := GetGithubRelease(ReleaseUrl)
 		if err != nil {
 			GithubError = err
 			return
