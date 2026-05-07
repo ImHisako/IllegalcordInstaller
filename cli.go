@@ -9,17 +9,27 @@
 package main
 
 import (
+	"bytes"
+	"equilotl/buildinfo"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
-	"vencord/buildinfo"
 
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
 )
+
+type noBellWriter struct{ w io.WriteCloser }
+
+func (n *noBellWriter) Write(p []byte) (int, error) {
+	return n.w.Write(bytes.ReplaceAll(p, []byte{0x07}, nil))
+}
+
+func (n *noBellWriter) Close() error { return n.w.Close() }
 
 var discords []any
 var interactive = false
@@ -64,7 +74,7 @@ func main() {
 
 	if *versionFlag {
 		fmt.Println("Equilotl Cli", buildinfo.InstallerTag, "("+buildinfo.InstallerGitHash+")")
-		fmt.Println("Copyright (C) 2025 Vendicated and Vencord contributors")
+		fmt.Println("Copyright (C) 2026 Vendicated, thororen1234, Vencord, and Equicord contributors")
 		fmt.Println("License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.")
 		return
 	}
@@ -118,8 +128,9 @@ func main() {
 			"Quit",
 		}
 		_, choice, err := (&promptui.Select{
-			Label: "What would you like to do? (Press Enter to confirm)",
-			Items: choices,
+			Label:  "What would you like to do? (Press Enter to confirm)",
+			Items:  choices,
+			Stdout: &noBellWriter{os.Stdout},
 		}).Run()
 		handlePromptError(err)
 
@@ -246,8 +257,9 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 	items = append(items, "Custom Location")
 
 	_, choice, err := (&promptui.Select{
-		Label: "Select Discord install to " + action + " (Press Enter to confirm)",
-		Items: items,
+		Label:  "Select Discord install to " + action + " (Press Enter to confirm)",
+		Items:  items,
+		Stdout: &noBellWriter{os.Stdout},
 	}).Run()
 	handlePromptError(err)
 
@@ -257,7 +269,8 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 
 	for {
 		custom, err := (&promptui.Prompt{
-			Label: "Custom Discord Location",
+			Label:  "Custom Discord Location",
+			Stdout: &noBellWriter{os.Stdout},
 		}).Run()
 		handlePromptError(err)
 

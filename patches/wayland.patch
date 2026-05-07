@@ -1,0 +1,36 @@
+--- a/vendor/github.com/AllenDang/cimgui-go/backend/glfwbackend/glfw_backend.go
++++ b/vendor/github.com/AllenDang/cimgui-go/backend/glfwbackend/glfw_backend.go
+@@ -1,6 +1,5 @@
+ package glfwbackend
+
+-// #cgo amd64,linux LDFLAGS: ${SRCDIR}/../../lib/linux/x64/libglfw3.a -ldl -lGL -lX11
+ // #cgo amd64,windows LDFLAGS: -L${SRCDIR}/../../lib/windows/x64 -l:libglfw3.a -lgdi32 -lopengl32 -limm32
+ // #cgo darwin LDFLAGS: -framework Cocoa -framework IOKit -framework CoreVideo
+ // #cgo amd64,darwin LDFLAGS: ${SRCDIR}/../../lib/macos/x64/libglfw3.a
+--- /dev/null
++++ b/vendor/github.com/AllenDang/cimgui-go/backend/glfwbackend/cflags_linux_x11.go
+@@ -0,0 +1,6 @@
++//go:build linux && !wayland && !combined
++
++package glfwbackend
++
++// #cgo amd64,linux LDFLAGS: ${SRCDIR}/../../lib/linux/x64/libglfw3.a -ldl -lGL -lX11
++import "C"
+--- /dev/null
++++ b/vendor/github.com/AllenDang/cimgui-go/backend/glfwbackend/cflags_linux_wayland.go
+@@ -0,0 +1,6 @@
++//go:build linux && wayland
++
++package glfwbackend
++
++// #cgo amd64,linux LDFLAGS: -lglfw -ldl -lGL -lEGL -lwayland-client -lwayland-cursor -lwayland-egl -lxkbcommon
++import "C"
+--- /dev/null
++++ b/vendor/github.com/AllenDang/cimgui-go/backend/glfwbackend/cflags_linux_combined.go
+@@ -0,0 +1,6 @@
++//go:build linux && combined
++
++package glfwbackend
++
++// #cgo amd64,linux LDFLAGS: -lglfw -ldl -lGL -lEGL -lX11 -lwayland-client -lwayland-cursor -lwayland-egl -lxkbcommon
++import "C"

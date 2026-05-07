@@ -60,6 +60,7 @@ func init() {
 		path.Join(Home, ".local/share"),
 		path.Join(Home, ".local/bin"),
 		path.Join(Home, ".dvm"),
+		path.Join(Home, ".config"),
 		"/var/lib/flatpak/app",
 		path.Join(Home, "/.local/share/flatpak/app"),
 	}
@@ -89,8 +90,30 @@ func ParseDiscord(p, _ string) *DiscordInstall {
 		isSystemElectron = true
 		isPatched = ExistsFile(path.Join(p, "_app.asar.unpacked"))
 	} else {
-		Log.Warn("Tried to parse invalid Location:", p)
-		return nil
+		entries, err := os.ReadDir(p)
+		appPath := ""
+
+		if err == nil {
+			for _, dir := range entries {
+				if dir.IsDir() && strings.HasPrefix(dir.Name(), "app-") {
+					resources := path.Join(p, dir.Name(), "resources")
+					if !ExistsFile(resources) {
+						continue
+					}
+					app := path.Join(resources, "app")
+					if app > appPath {
+						appPath = app
+						isPatched = ExistsFile(path.Join(resources, "_app.asar"))
+					}
+				}
+			}
+		}
+
+		if appPath == "" {
+			return nil
+		}
+
+		app = appPath
 	}
 
 	return &DiscordInstall{

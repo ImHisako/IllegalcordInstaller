@@ -11,13 +11,13 @@ package main
 import (
 	"bytes"
 	_ "embed"
+	"equilotl/buildinfo"
 	"errors"
 	"image"
 	"image/color"
-	"vencord/buildinfo"
 
+	imgui "github.com/AllenDang/cimgui-go/imgui"
 	g "github.com/AllenDang/giu"
-	"github.com/AllenDang/imgui-go"
 
 	// png decoder for icon
 	_ "image/png"
@@ -64,6 +64,14 @@ func main() {
 
 	customChoiceIdx = len(discords)
 
+	var linuxFlags g.MasterWindowFlags = 0
+	if runtime.GOOS == "linux" {
+		os.Setenv("GDK_SCALE", "1")
+		os.Setenv("GDK_DPI_SCALE", "1")
+	}
+
+	win = g.NewMasterWindow("Equilotl", 1200, 800, linuxFlags)
+
 	go func() {
 		<-GithubDoneChan
 		g.Update()
@@ -74,20 +82,12 @@ func main() {
 		g.Update()
 	}()
 
-	var linuxFlags g.MasterWindowFlags = 0
-	if runtime.GOOS == "linux" {
-		os.Setenv("GDK_SCALE", "1")
-		os.Setenv("GDK_DPI_SCALE", "1")
-	}
-
-	win = g.NewMasterWindow("Equilotl", 1200, 800, linuxFlags)
-
 	icon, _, err := image.Decode(bytes.NewReader(iconBytes))
 	if err != nil {
 		Log.Warn("Failed to load application icon", err)
 		Log.Debug(iconBytes, len(iconBytes))
 	} else {
-		win.SetIcon([]image.Image{icon})
+		win.SetIcon(icon)
 	}
 	win.Run(loop)
 }
@@ -114,7 +114,9 @@ func getChosenInstall() *DiscordInstall {
 			g.OpenPopup("#invalid-custom-location")
 		}
 	} else {
-		choice = discords[radioIdx].(*DiscordInstall)
+		if radioIdx >= 0 && radioIdx < len(discords) {
+			choice = discords[radioIdx].(*DiscordInstall)
+		}
 	}
 	return choice
 }
@@ -300,16 +302,22 @@ func RawInfoModal(id, title, description string, isOpenAsar bool) g.Widget {
 		SetStyle(g.StyleVarWindowPadding, 30, 30).
 		SetStyleFloat(g.StyleVarWindowRounding, 12).
 		To(
+			g.Custom(func() {
+				wi, _ := win.GetSize()
+				modalW := float32(wi) * 0.8
+				if modalW < 300 {
+					modalW = 300
+				}
+				g.SetNextWindowSize(modalW, 0)
+			}),
 			g.PopupModal(id).
-				Flags(g.WindowFlagsNoTitleBar | Ternary(isDynamic, g.WindowFlagsAlwaysAutoResize, 0)).
+				Flags(g.WindowFlagsNoTitleBar|g.WindowFlagsNoResize|g.WindowFlagsNoMove|Ternary(isDynamic, g.WindowFlagsAlwaysAutoResize, 0)).
 				Layout(
 					g.Align(g.AlignCenter).To(
 						g.Style().SetFontSize(30).To(
 							g.Label(title),
 						),
-						g.Style().SetFontSize(20).To(
-							g.Label(description).Wrapped(isDynamic),
-						),
+						g.Label(description).Wrapped(true),
 						&CondWidget{id == "#scuffed-install", func() g.Widget {
 							return g.Column(
 								g.Dummy(0, 10),
@@ -356,22 +364,24 @@ func UpdateModal() g.Widget {
 		SetStyle(g.StyleVarWindowPadding, 30, 30).
 		SetStyleFloat(g.StyleVarWindowRounding, 12).
 		To(
+			g.Custom(func() {
+				wi, _ := win.GetSize()
+				g.SetNextWindowSize(float32(wi)*0.8, 0)
+			}),
 			g.PopupModal("#update-prompt").
-				Flags(g.WindowFlagsNoTitleBar | g.WindowFlagsAlwaysAutoResize).
+				Flags(g.WindowFlagsNoTitleBar|g.WindowFlagsNoResize|g.WindowFlagsNoMove|g.WindowFlagsAlwaysAutoResize).
 				Layout(
 					g.Align(g.AlignCenter).To(
 						g.Style().SetFontSize(30).To(
 							g.Label("Your Installer is outdated!"),
 						),
-						g.Style().SetFontSize(20).To(
-							g.Label(
-								"Would you like to update now?\n\n"+
-									"Once you press Update Now, the new installer will automatically be downloaded.\n"+
-									"The installer will temporarily seem unresponsive. Just wait!\n"+
-									"Once the update is done, the Installer will automatically reopen.\n\n"+
-									"On MacOs, Auto updates are not supported, so it will instead open in browser.",
-							),
-						),
+						g.Label(
+							"Would you like to update now?\n\n"+
+								"Once you press Update Now, the new installer will automatically be downloaded.\n"+
+								"The installer will temporarily seem unresponsive. Just wait!\n"+
+								"Once the update is done, the Installer will automatically reopen.\n\n"+
+								"On MacOs, Auto updates are not supported, so it will instead open in browser.",
+						).Wrapped(true),
 						g.Row(
 							g.Button("Update Now").
 								OnClick(func() {
@@ -414,10 +424,22 @@ func ShowModal(title, desc string) {
 func renderInstaller() g.Widget {
 	candidates := makeAutoComplete()
 	wi, _ := win.GetSize()
+	if wi < 96 {
+		wi = 96
+	}
+
 	w := float32(wi) - 96
+	if w < 200 {
+		w = 200
+	}
+
+	btnWidth := (w - 40) / 4
+	if btnWidth < 1 {
+		btnWidth = 1
+	}
 
 	var currentDiscord *DiscordInstall
-	if radioIdx != customChoiceIdx {
+	if radioIdx != customChoiceIdx && radioIdx >= 0 && radioIdx < len(discords) {
 		currentDiscord = discords[radioIdx].(*DiscordInstall)
 	}
 	var isOpenAsar = currentDiscord != nil && currentDiscord.IsOpenAsar()
@@ -427,23 +449,28 @@ func renderInstaller() g.Widget {
 		g.OpenPopup("#update-prompt")
 	}
 
+	var warningHeight float32 = 90
+	var baseFontSize float32 = 30
+	if runtime.GOOS == "darwin" {
+		warningHeight = 130
+		baseFontSize = 20
+	}
+
 	layout := g.Layout{
 		g.Dummy(0, 20),
 		g.Separator(),
 		g.Dummy(0, 5),
 
-		g.Style().SetFontSize(20).To(
-			renderErrorCard(
-				DiscordYellow,
-				"**Github** and **equicord.org** are the only official places to get Equicord. Any other site claiming to be us is malicious.\n"+
-					"If you downloaded from any other source, you should delete / uninstall everything immediately, run a malware scan and change your Discord password.",
-				90,
-			),
+		renderErrorCard(
+			DiscordYellow,
+			"**Github** and **equicord.org** are the only official places to get Equicord. Any other site claiming to be us is malicious.\n"+
+				"If you downloaded from any other source, you should delete / uninstall everything immediately, run a malware scan and change your Discord password.",
+			warningHeight,
 		),
 
 		g.Dummy(0, 5),
 
-		g.Style().SetFontSize(30).To(
+		g.Style().SetFontSize(baseFontSize).To(
 			g.Label("Please select an install to patch"),
 		),
 
@@ -455,26 +482,23 @@ func renderInstaller() g.Widget {
 			return g.Label(s)
 		}, nil},
 
-		g.Style().SetFontSize(20).To(
-			g.RangeBuilder("Discords", discords, func(i int, v any) g.Widget {
-				d := v.(*DiscordInstall)
-				//goland:noinspection GoDeprecation
-				text := strings.Title(d.branch) + " - " + d.path
-				if d.isPatched {
-					text += " [PATCHED]"
-				}
-				return g.RadioButton(text, radioIdx == i).
-					OnChange(makeRadioOnChange(i))
-			}),
+		g.RangeBuilder("Discords", discords, func(i int, v any) g.Widget {
+			d := v.(*DiscordInstall)
+			//goland:noinspection GoDeprecation
+			text := strings.Title(d.branch) + " - " + d.path
+			if d.isPatched {
+				text += " [PATCHED]"
+			}
+			return g.RadioButton(text, radioIdx == i).
+				OnChange(makeRadioOnChange(i))
+		}),
 
-			g.RadioButton("Custom Install Location", radioIdx == customChoiceIdx).
-				OnChange(makeRadioOnChange(customChoiceIdx)),
-		),
+		g.RadioButton("Custom Install Location", radioIdx == customChoiceIdx).
+			OnChange(makeRadioOnChange(customChoiceIdx)),
 
 		g.Dummy(0, 5),
 		g.Style().
 			SetStyle(g.StyleVarFramePadding, 16, 16).
-			SetFontSize(20).
 			To(
 				g.InputText(&customDir).Hint("The custom location").
 					Size(w - 16).
@@ -482,7 +506,7 @@ func renderInstaller() g.Widget {
 					OnChange(onCustomInputChanged).
 					// this library has its own autocomplete but it's broken
 					Callback(
-						func(data imgui.InputTextCallbackData) int32 {
+						func(data imgui.InputTextCallbackData) int {
 							if len(candidates) == 0 {
 								return 0
 							}
@@ -498,15 +522,15 @@ func renderInstaller() g.Widget {
 							// Delete previous auto complete
 							if lastAutoComplete != "" {
 								start -= len(lastAutoComplete)
-								data.DeleteBytes(start, len(lastAutoComplete))
+								data.DeleteChars(int32(start), int32(len(lastAutoComplete)))
 							} else if autoCompleteFile != "" { // delete partial input
 								start -= len(autoCompleteFile)
-								data.DeleteBytes(start, len(autoCompleteFile))
+								data.DeleteChars(int32(start), int32(len(autoCompleteFile)))
 							}
 
 							// Insert auto complete
 							lastAutoComplete = candidates[autoCompleteIdx].(string)
-							data.InsertBytes(start, []byte(lastAutoComplete))
+							data.InsertChars(int32(start), lastAutoComplete)
 							autoCompleteIdx++
 
 							return 0
@@ -519,53 +543,50 @@ func renderInstaller() g.Widget {
 		}),
 
 		g.Dummy(0, 20),
-
-		g.Style().SetFontSize(20).To(
-			g.Row(
-				g.Style().
-					SetColor(g.StyleColorButton, DiscordGreen).
-					SetDisabled(GithubError != nil).
-					To(
-						g.Button("Install").
-							OnClick(handlePatch).
-							Size((w-40)/4, 50),
-						Tooltip("Patch the selected Discord Install"),
-					),
-				g.Style().
-					SetColor(g.StyleColorButton, DiscordBlue).
-					SetDisabled(GithubError != nil).
-					To(
-						g.Button("Reinstall / Repair").
-							OnClick(func() {
-								if IsDevInstall {
+		g.Row(
+			g.Style().
+				SetColor(g.StyleColorButton, DiscordGreen).
+				SetDisabled(GithubError != nil).
+				To(
+					g.Button("Install").
+						OnClick(handlePatch).
+						Size(btnWidth, 50),
+					Tooltip("Patch the selected Discord Install"),
+				),
+			g.Style().
+				SetColor(g.StyleColorButton, DiscordBlue).
+				SetDisabled(GithubError != nil).
+				To(
+					g.Button("Reinstall / Repair").
+						OnClick(func() {
+							if IsDevInstall {
+								handlePatch()
+							} else {
+								err := InstallLatestBuilds()
+								if err == nil {
 									handlePatch()
-								} else {
-									err := InstallLatestBuilds()
-									if err == nil {
-										handlePatch()
-									}
 								}
-							}).
-							Size((w-40)/4, 50),
-						Tooltip("Reinstall & Update Equicord"),
-					),
-				g.Style().
-					SetColor(g.StyleColorButton, DiscordRed).
-					To(
-						g.Button("Uninstall").
-							OnClick(handleUnpatch).
-							Size((w-40)/4, 50),
-						Tooltip("Unpatch the selected Discord Install"),
-					),
-				g.Style().
-					SetColor(g.StyleColorButton, Ternary(isOpenAsar, DiscordRed, DiscordGreen)).
-					To(
-						g.Button(Ternary(isOpenAsar, "Uninstall OpenAsar", Ternary(currentDiscord != nil, "Install OpenAsar", "(Un-)Install OpenAsar"))).
-							OnClick(handleOpenAsar).
-							Size((w-40)/4, 50),
-						Tooltip("Manage OpenAsar"),
-					),
-			),
+							}
+						}).
+						Size(btnWidth, 50),
+					Tooltip("Reinstall & Update Equicord"),
+				),
+			g.Style().
+				SetColor(g.StyleColorButton, DiscordRed).
+				To(
+					g.Button("Uninstall").
+						OnClick(handleUnpatch).
+						Size(btnWidth, 50),
+					Tooltip("Unpatch the selected Discord Install"),
+				),
+			g.Style().
+				SetColor(g.StyleColorButton, Ternary(isOpenAsar, DiscordRed, DiscordGreen)).
+				To(
+					g.Button(Ternary(isOpenAsar, "Uninstall OpenAsar", Ternary(currentDiscord != nil, "Install OpenAsar", "(Un-)Install OpenAsar"))).
+						OnClick(handleOpenAsar).
+						Size(btnWidth, 50),
+					Tooltip("Manage OpenAsar"),
+				),
 		),
 
 		InfoModal("#patched", "Successfully Patched", "If Discord is still open, fully close it first.\n"+
@@ -602,10 +623,11 @@ func renderErrorCard(col color.Color, message string, height float32) g.Widget {
 		To(
 			g.Child().
 				Size(g.Auto, height).
+				Flags(g.WindowFlagsNoScrollbar).
 				Layout(
 					g.Row(
 						g.Style().SetColor(g.StyleColorText, color.Black).To(
-							g.Markdown(&message),
+							g.Markdown(message),
 						),
 					),
 				),
@@ -613,6 +635,13 @@ func renderErrorCard(col color.Color, message string, height float32) g.Widget {
 }
 
 func loop() {
+	var baseFontSize float32 = 20
+	var baseHeaderSize float32 = 40
+	if runtime.GOOS == "darwin" {
+		baseFontSize = 10
+		baseHeaderSize = 30
+	}
+
 	g.PushWindowPadding(48, 48)
 
 	g.SingleWindow().
@@ -629,14 +658,15 @@ func loop() {
 			}},
 		).
 		Layout(
-			g.Align(g.AlignCenter).To(
-				g.Style().SetFontSize(40).To(
-					g.Label("Equilotl"),
+			g.Style().SetFontSize(baseFontSize).To(
+				g.Align(g.AlignCenter).To(
+					g.Style().SetFontSize(baseHeaderSize).To(
+						g.Label("Equilotl"),
+					),
 				),
-			),
 
-			g.Dummy(0, 20),
-			g.Style().SetFontSize(20).To(
+				g.Dummy(0, 20),
+
 				g.Row(
 					g.Label(Ternary(IsDevInstall, "Dev Install: ", "Equicord will be downloaded to: ")+EquicordDirectory),
 					g.Style().
@@ -648,12 +678,15 @@ func loop() {
 							}),
 						),
 				),
+
 				&CondWidget{!IsDevInstall, func() g.Widget {
 					return g.Label("To customise this location, set the environment variable 'EQUICORD_USER_DATA_DIR' and restart me").Wrapped(true)
 				}, nil},
+
 				g.Dummy(0, 10),
 				g.Label("Equilotl Version: "+buildinfo.InstallerTag+" ("+buildinfo.InstallerGitHash+")"+Ternary(IsSelfOutdated, " - OUTDATED", "")),
 				g.Label("Local Equicord Version: "+InstalledHash),
+
 				&CondWidget{
 					GithubError == nil,
 					func() g.Widget {
@@ -665,9 +698,9 @@ func loop() {
 						return renderErrorCard(DiscordRed, "Failed to fetch Info from GitHub: "+GithubError.Error(), 40)
 					},
 				},
-			),
 
-			renderInstaller(),
+				renderInstaller(),
+			),
 		)
 
 	g.PopStyle()

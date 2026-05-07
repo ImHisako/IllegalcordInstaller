@@ -14,18 +14,18 @@ permissions:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
-      - uses: actions/cache@v3
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
@@ -37,47 +37,67 @@ jobs:
       - name: Install Linux dependencies
         run: |
           sudo apt update
-          sudo apt install -y pkg-config libsdl2-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libglx-dev libgl1-mesa-dev libxxf86vm-dev libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
+          sudo apt install -y pkg-config libsdl2-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libglx-dev libgl1-mesa-dev libxxf86vm-dev libglfw3-dev libwayland-dev libwayland-egl1 libegl-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
 
       - name: Install Go dependencies
         run: go get -v
 
-      - name: Build GUI
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -X 'vencord/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencord/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-x11
+      - name: Recreate vendor and apply Wayland patches
+        run: |
+          go mod vendor
+          git apply patches/wayland.patch
+
+      - name: Build GUI (X11)
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags static -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          Equilotl-x11
+
+      - name: Build GUI (Wayland)
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static wayland"
+          -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git
+          rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{
+          github.ref_name }}'" -o Equilotl-wayland
+
+      - name: Build GUI (Combined)
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static combined"
+          -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git
+          rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{
+          github.ref_name }}'" -o Equilotl
 
       - name: Build CLI
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'vencord/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencord/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli-linux
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "cli" -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          EquilotlCli-linux
 
       - name: Update executable
         run: |
           chmod +x Equilotl*
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Equilotl-linux
           path: |
             Equilotl-x11
+            Equilotl-wayland
+            Equilotl
             EquilotlCli-linux
 
   build-mac:
     runs-on: macos-latest
 
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
-      - id: go-cache-paths
-        run: |
-          echo "go_build=$(go env GOCACHE)" >> $GITHUB_ENV
-          echo "go_mod=$(go env GOMODCACHE)" >> $GITHUB_ENV
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
-      - uses: actions/cache@v3
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@v5
         with:
           path: |
             ~/Library/Caches/go-build
@@ -93,7 +113,11 @@ jobs:
         run: go get -v
 
       - name: Build GUI
-        run: CGO_CFLAGS="-mmacosx-version-min=10.15" CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -X 'vencord/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencord/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl
+        run: CGO_CFLAGS="-mmacosx-version-min=10.15"
+          CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin
+          GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -X
+          'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X
+          'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl
 
       - name: Update executable
         run: |
@@ -141,7 +165,7 @@ jobs:
         run: zip -r Equilotl.MacOS.zip Equilotl.app
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Equilotl-macos
           path: |
@@ -151,15 +175,15 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
-
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
-      - uses: actions/cache@v3
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@v5
         with:
           path: |
             ~\AppData\Local\go-build
@@ -170,39 +194,33 @@ jobs:
 
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
 
       - name: Install Windows dependencies
         shell: msys2 {0}
         run: |
-          pacman -S --noconfirm git mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2 mingw-w64-x86_64-go
-          export GOROOT=/mingw64/lib/go
-          export GOPATH=/mingw64
+          pacman -S --noconfirm git mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
 
       - name: Install Go dependencies
         shell: msys2 {0}
         run: |
-          export GOROOT=/mingw64/lib/go
-          export GOPATH=/mingw64
           go get -v
           go install github.com/tc-hib/go-winres@latest
 
       - name: Build GUI
         shell: msys2 {0}
         run: |
-          export GOROOT=/mingw64/lib/go
-          export GOPATH=/mingw64
           go-winres make --product-version "git-tag"
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'vencord/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencord/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl.exe
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl.exe
 
       - name: Build CLI
         shell: msys2 {0}
         run: |
-          export GOROOT=/mingw64/lib/go
-          export GOPATH=/mingw64
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'vencord/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'vencord/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli.exe
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli.exe
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Equilotl-windows
           path: |
@@ -211,43 +229,50 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [build-linux, build-mac, build-windows]
+    needs: [ build-linux, build-mac, build-windows ]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: "Download Linux Artifacts"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Equilotl-linux
           path: linux
 
       - name: "Download MacOS Artifacts"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Equilotl-macos
           path: macos
 
       - name: "Download Windows Artifacts"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Equilotl-windows
           path: windows
 
+      - name: Delete existing release
+        run: gh release delete "${{ github.ref_name }}" --yes || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           generate_release_notes: true
-          make_latest: true
-          prerelease: false
+          make_latest: ${{ !contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
           draft: false
           body: |
             This is release ${{ github.ref_name }} of Equilotl.
           files: |
             linux/Equilotl-x11
+            linux/Equilotl-wayland
+            linux/Equilotl
             linux/EquilotlCli-linux
             macos/Equilotl.MacOS.zip
             windows/Equilotl*.exe

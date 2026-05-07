@@ -7,8 +7,8 @@
 package main
 
 import (
+	"equilotl/buildinfo"
 	"image/color"
-	"vencord/buildinfo"
 )
 
 const ReleaseUrl = "https://api.github.com/repos/ImHisako/Illegalcord/releases/latest"

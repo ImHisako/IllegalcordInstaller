@@ -1,4 +1,6 @@
 equilotl
+vencord
 *.exe
 *.syso
 *.old
+vendor

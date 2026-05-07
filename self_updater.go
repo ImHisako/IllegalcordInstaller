@@ -7,6 +7,7 @@
 package main
 
 import (
+	"equilotl/buildinfo"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,6 @@ import (
 	"path"
 	"runtime"
 	"time"
-	"vencord/buildinfo"
 )
 
 var IsSelfOutdated = false
