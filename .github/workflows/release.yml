@@ -86,7 +86,19 @@ jobs:
             EquilotlCli-linux
 
   build-mac:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-15-intel
+            artifact_name: Equilotl-macos
+            zip_name: Equilotl-darwin-x64.zip
+          - arch: arm64
+            runner: macos-latest
+            artifact_name: Equilotl-macos-arm64
+            zip_name: Equilotl-darwin-arm64.zip
 
     steps:
       - name: Checkout code
@@ -102,9 +114,9 @@ jobs:
           path: |
             ~/Library/Caches/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-${{ matrix.arch }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-
+            ${{ runner.os }}-${{ matrix.arch }}-go-
 
       - name: Install dependencies
         run: brew install pkg-config sdl2
@@ -115,9 +127,10 @@ jobs:
       - name: Build GUI
         run: CGO_CFLAGS="-mmacosx-version-min=10.15"
           CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin
-          GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -X
-          'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X
-          'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl
+          GOARCH=${{ matrix.arch }} go build -v -tags "static gui" -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          Equilotl
 
       - name: Update executable
         run: |
@@ -162,14 +175,13 @@ jobs:
           rm apple.p8 Equilotl-notarize.zip
 
       - name: Create final zip
-        run: zip -r Equilotl.MacOS.zip Equilotl.app
+        run: zip -r ${{ matrix.zip_name }} Equilotl.app
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Equilotl-macos
-          path: |
-            Equilotl.MacOS.zip
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.zip_name }}
 
   build-windows:
     runs-on: windows-latest
@@ -247,6 +259,11 @@ jobs:
           name: Equilotl-macos
           path: macos
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: Equilotl-macos-arm64
+          path: macos
+
       - name: "Download Windows Artifacts"
         uses: actions/download-artifact@v8
         with:
@@ -274,5 +291,6 @@ jobs:
             linux/Equilotl-wayland
             linux/Equilotl
             linux/EquilotlCli-linux
-            macos/Equilotl.MacOS.zip
+            macos/Equilotl-darwin-x64.zip
+            macos/Equilotl-darwin-arm64.zip
             windows/Equilotl*.exe

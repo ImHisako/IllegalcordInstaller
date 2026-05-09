@@ -52,7 +52,14 @@ func GetInstallerDownloadLink() string {
 		filename := Ternary(buildinfo.UiType == buildinfo.UiTypeCli, "EquilotlCli.exe", "Equilotl.exe")
 		return BaseUrl + filename
 	case "darwin":
-		return BaseUrl + "Equilotl.MacOS.zip"
+		switch runtime.GOARCH {
+		case "amd64":
+			return BaseUrl + "Equilotl-darwin-x64.zip"
+		case "arm64":
+			return BaseUrl + "Equilotl-darwin-arm64.zip"
+		default:
+			return ""
+		}
 	case "linux":
 		return BaseUrl + "EquilotlCli-linux"
 	default:
