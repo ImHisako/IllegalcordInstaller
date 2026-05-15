@@ -242,11 +242,14 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 	}
 
 	if dir != "" {
+		if discord := ParseDiscordNew(dir, branch, strings.Contains(dir, "com.discordapp")); discord != nil {
+			return discord
+		}
 		if discord := ParseDiscord(dir, branch); discord != nil {
 			return discord
-		} else {
-			die(dir + " is not a valid Discord install. Hint: snap is not supported")
 		}
+
+		die(dir + " is not a valid Discord install. Hint: snap is not supported")
 	}
 
 	items := SliceMap(discords, func(d any) string {
@@ -273,6 +276,10 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 			Stdout: &noBellWriter{os.Stdout},
 		}).Run()
 		handlePromptError(err)
+
+		if di := ParseDiscordNew(custom, "", strings.Contains(dir, "com.discordapp")); di != nil {
+			return di
+		}
 
 		if di := ParseDiscord(custom, ""); di != nil {
 			return di

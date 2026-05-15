@@ -118,6 +118,9 @@ func getChosenInstall() *DiscordInstall {
 	if radioIdx == customChoiceIdx {
 		choice = ParseDiscord(customDir, "")
 		if choice == nil {
+			choice = ParseDiscordNew(customDir, "", strings.Contains(customDir, "com.discordapp"))
+		}
+		if choice == nil {
 			g.OpenPopup("#invalid-custom-location")
 		}
 	} else {
