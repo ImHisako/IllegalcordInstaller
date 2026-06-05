@@ -66,6 +66,45 @@ func init() {
 }
 
 func main() {
+	var fallbackScale float32 = 1.0
+	if scaleStr := os.Getenv("EQUILOTL_SCALE"); scaleStr != "" {
+		if s, err := strconv.ParseFloat(scaleStr, 32); err == nil && s > 0 && s < 99 {
+			fallbackScale = float32(s)
+			Log.Info("Using custom DPI scale:", fallbackScale)
+		} else {
+			Log.Warn("Invalid value for EQUILOTL_SCALE:", scaleStr)
+		}
+	} else if scaleStr := os.Getenv("EQUILOTL_DPI_SCALE"); scaleStr != "" {
+		if s, err := strconv.ParseFloat(scaleStr, 32); err == nil && s > 0 && s < 99 {
+			fallbackScale = float32(s)
+			Log.Info("Using custom DPI scale:", fallbackScale)
+		} else {
+			Log.Warn("Invalid value for EQUILOTL_DPI_SCALE:", scaleStr)
+		}
+	}
+
+	imgui.SetAssertHandler(func(expression string, file string, line int) {
+		if strings.Contains(expression, "DpiScale") {
+			Log.Warn("Ignoring ImGui DPI scale assertion failure:", expression, "at", file, "line", line)
+
+			io := imgui.CurrentPlatformIO()
+			monitors := io.Monitors().Slice()
+			for i, mon := range monitors {
+				scale := mon.DpiScale()
+				if scale <= 0 || scale >= 99 {
+					Log.Warn("Resetting invalid monitor", i, "DPI scale from", scale, "to", fallbackScale)
+					mon.SetDpiScale(fallbackScale)
+				}
+			}
+			return
+		}
+		panic(imgui.AssertionError{
+			Expression: expression,
+			File:       file,
+			Line:       line,
+		})
+	})
+
 	InitGithubDownloader()
 	discords = FindDiscords()
 
@@ -188,6 +227,9 @@ func handleOpenAsarConfirmed() {
 }
 
 func handleErr(di *DiscordInstall, err error, action string) {
+	if errors.Is(err, ErrAlreadyReported) {
+		return
+	}
 	if errors.Is(err, os.ErrPermission) {
 		switch runtime.GOOS {
 		case "windows":
@@ -327,19 +369,26 @@ func RawInfoModal(id, title, description string, isOpenAsar bool) g.Widget {
 						g.Style().SetFontSize(30).To(
 							g.Label(title),
 						),
+					),
+					g.Dummy(0, 10),
+					g.Style().SetFontSize(16).To(
 						g.Label(description).Wrapped(true),
-						&CondWidget{id == "#scuffed-install", func() g.Widget {
-							return g.Column(
-								g.Dummy(0, 10),
+					),
+					&CondWidget{id == "#scuffed-install", func() g.Widget {
+						return g.Column(
+							g.Dummy(0, 10),
+							g.Align(g.AlignCenter).To(
 								g.Button("Take me there!").OnClick(func() {
 									// this issue only exists on windows so using Windows specific path is oki
 									username := os.Getenv("USERNAME")
 									programData := os.Getenv("PROGRAMDATA")
 									g.OpenURL("file://" + path.Join(programData, username))
 								}).Size(200, 30),
-							)
-						}, nil},
-						g.Dummy(0, 20),
+							),
+						)
+					}, nil},
+					g.Dummy(0, 20),
+					g.Align(g.AlignCenter).To(
 						&CondWidget{isOpenAsar,
 							func() g.Widget {
 								return g.Row(

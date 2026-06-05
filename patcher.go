@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -19,6 +20,8 @@ import (
 var BaseDir string
 var BaseDirErr error
 var EquicordDirectory string
+
+var ErrAlreadyReported = errors.New("already reported")
 
 func init() {
 	if dir := os.Getenv("EQUICORD_USER_DATA_DIR"); dir != "" {
@@ -110,7 +113,7 @@ func (di *DiscordInstall) patch() error {
 	Log.Info("Patching " + di.path + "...")
 	if LatestHash != InstalledHash {
 		if err := InstallLatestBuilds(); err != nil {
-			return nil // already shown dialog so don't return same error again
+			return ErrAlreadyReported
 		}
 	}
 
@@ -187,10 +190,58 @@ func (di *DiscordInstall) patch() error {
 
 // region Unpatch
 
+func isEquicordLoaderAppAsar(appAsar string) (bool, error) {
+	stat, err := os.Stat(appAsar)
+	if err != nil {
+		return false, err
+	}
+	if stat.Size() > 128*1024 {
+		return false, nil
+	}
+	b, err := os.ReadFile(appAsar)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Contains(b, []byte(PackageJson)) && bytes.Contains(b, []byte("require(")), nil
+}
+
+func cleanupDesyncedPatchedInstall(dir string, isSystemElectron bool) (bool, error) {
+	appAsar := path.Join(dir, "app.asar")
+	_appAsar := path.Join(dir, "_app.asar")
+
+	isLoader, err := isEquicordLoaderAppAsar(appAsar)
+	if err != nil {
+		return false, err
+	}
+	if isLoader {
+		return false, nil
+	}
+
+	Log.Warn("Detected a patched install with a non-Equicord app.asar. Discord was likely updated while patched; removing stale _app.asar")
+
+	if err = os.Remove(_appAsar); err != nil {
+		return false, CheckIfErrIsCauseItsBusyRn(err)
+	}
+	if isSystemElectron {
+		if err = os.RemoveAll(_appAsar + ".unpacked"); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
 func unpatchAppAsar(dir string, isSystemElectron bool) (errOut error) {
 	appAsar := path.Join(dir, "app.asar")
 	appAsarTmp := path.Join(dir, "app.asar.tmp")
 	_appAsar := path.Join(dir, "_app.asar")
+
+	cleanedUp, err := cleanupDesyncedPatchedInstall(dir, isSystemElectron)
+	if err != nil {
+		return err
+	}
+	if cleanedUp {
+		return nil
+	}
 
 	var renamesDone [][]string
 	defer func() {
@@ -215,25 +266,28 @@ func unpatchAppAsar(dir string, isSystemElectron bool) (errOut error) {
 		err = CheckIfErrIsCauseItsBusyRn(err)
 		Log.Error(err.Error())
 		errOut = err
-	} else {
-		renamesDone = append(renamesDone, []string{appAsar, appAsarTmp})
+		return
 	}
+	renamesDone = append(renamesDone, []string{appAsar, appAsarTmp})
 
 	Log.Debug("Renaming", _appAsar, "to", appAsar)
 	if err := os.Rename(_appAsar, appAsar); err != nil {
 		err = CheckIfErrIsCauseItsBusyRn(err)
 		Log.Error(err.Error())
 		errOut = err
-	} else {
-		renamesDone = append(renamesDone, []string{_appAsar, appAsar})
+		return
 	}
+	renamesDone = append(renamesDone, []string{_appAsar, appAsar})
 
 	if isSystemElectron {
-		Log.Debug("Renaming", _appAsar+".unpacked", "to", appAsar+".unpacked")
-		if err := os.Rename(_appAsar+".unpacked", appAsar+".unpacked"); err != nil {
+		from, to := _appAsar+".unpacked", appAsar+".unpacked"
+		Log.Debug("Renaming", from, "to", to)
+		if err := os.Rename(from, to); err != nil {
 			Log.Error(err.Error())
 			errOut = err
+			return
 		}
+		renamesDone = append(renamesDone, []string{from, to})
 	}
 	return
 }

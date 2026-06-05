@@ -53,6 +53,7 @@ func init() {
 
 	DiscordDirs = []string{
 		"/usr/share",
+		"/usr/lib",
 		"/usr/lib64",
 		"/opt",
 		path.Join(Home, "Applications"),
@@ -67,6 +68,25 @@ func init() {
 	}
 }
 
+func tryAppDir(p, appDirName string) (string, bool, []int, bool) {
+	if !strings.HasPrefix(appDirName, "app-") {
+		return "", false, nil, false
+	}
+	ver := ParseAppVersion(appDirName)
+	if ver == nil {
+		return "", false, nil, false
+	}
+	resources := path.Join(p, appDirName, "resources")
+	if !ExistsFile(resources) {
+		return "", false, nil, false
+	}
+	dirIsPatched := ExistsFile(path.Join(resources, "_app.asar"))
+	if !dirIsPatched && !ExistsFile(path.Join(resources, "app.asar")) {
+		return "", false, nil, false
+	}
+	return path.Join(resources, "app"), dirIsPatched, ver, true
+}
+
 func ParseDiscordNew(p, branch string, isFlatpak bool) *DiscordInstall {
 	entries, err := os.ReadDir(p)
 	if err != nil {
@@ -78,16 +98,28 @@ func ParseDiscordNew(p, branch string, isFlatpak bool) *DiscordInstall {
 
 	isPatched := false
 	appPath := ""
-	for _, dir := range entries {
-		if dir.IsDir() && strings.HasPrefix(dir.Name(), "app-") {
-			resources := path.Join(p, dir.Name(), "resources")
-			if !ExistsFile(resources) {
+
+	if target, err := os.Readlink(path.Join(p, "Discord")); err == nil {
+		if a, ip, _, ok := tryAppDir(p, path.Base(path.Dir(target))); ok {
+			appPath = a
+			isPatched = ip
+		}
+	}
+
+	if appPath == "" {
+		var latestVer []int
+		for _, dir := range entries {
+			if !dir.IsDir() {
 				continue
 			}
-			app := path.Join(resources, "app")
-			if app > appPath {
-				appPath = app
-				isPatched = ExistsFile(path.Join(resources, "_app.asar"))
+			a, ip, ver, ok := tryAppDir(p, dir.Name())
+			if !ok {
+				continue
+			}
+			if appPath == "" || CompareAppVersion(ver, latestVer) > 0 {
+				appPath = a
+				isPatched = ip
+				latestVer = ver
 			}
 		}
 	}
@@ -149,11 +181,21 @@ func ParseDiscord(p, _ string) *DiscordInstall {
 
 func FindDiscords() []any {
 	var discords []any
+	seenDir := make(map[string]bool)
 	for _, dir := range DiscordDirs {
-		children, err := os.ReadDir(dir)
+		resolvedDir, err := path.EvalSymlinks(dir)
+		if err != nil {
+			continue
+		}
+		if seenDir[resolvedDir] {
+			continue
+		}
+		seenDir[resolvedDir] = true
+
+		children, err := os.ReadDir(resolvedDir)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				Log.Warn("Error during readdir "+dir+":", err)
+				Log.Warn("Error during readdir "+resolvedDir+":", err)
 			}
 			continue
 		}
@@ -164,7 +206,7 @@ func FindDiscords() []any {
 				continue
 			}
 
-			discordDir := path.Join(dir, name)
+			discordDir := path.Join(resolvedDir, name)
 			if discord := ParseDiscord(discordDir, ""); discord != nil {
 				Log.Debug("Found Discord install at ", discordDir)
 				discords = append(discords, discord)

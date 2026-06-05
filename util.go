@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -66,6 +67,38 @@ func Ternary[T any](b bool, ifTrue, ifFalse T) T {
 		return ifTrue
 	}
 	return ifFalse
+}
+
+func ParseAppVersion(name string) []int {
+	parts := strings.Split(strings.TrimPrefix(name, "app-"), ".")
+	out := make([]int, len(parts))
+	for i, s := range parts {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return nil
+		}
+		out[i] = n
+	}
+	return out
+}
+
+func CompareAppVersion(a, b []int) int {
+	for i := 0; i < len(a) || i < len(b); i++ {
+		var x, y int
+		if i < len(a) {
+			x = a[i]
+		}
+		if i < len(b) {
+			y = b[i]
+		}
+		if x != y {
+			if x < y {
+				return -1
+			}
+			return 1
+		}
+	}
+	return 0
 }
 
 var branches = []string{"canary", "development", "ptb"}
