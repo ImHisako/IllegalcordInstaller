@@ -1,0 +1,316 @@
+# Based partially on Alyxia's work, thanks so much!
+
+name: Release
+on:
+  push:
+    tags:
+      - v*
+
+env:
+  FORCE_COLOR: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y pkg-config libsdl2-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libglx-dev libgl1-mesa-dev libxxf86vm-dev libglfw3-dev libwayland-dev libwayland-egl1 libegl-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
+
+      - name: Install Go dependencies
+        run: go get -v
+
+      - name: Recreate vendor and apply Wayland patches
+        run: |
+          go mod vendor
+          git apply patches/wayland.patch
+
+      - name: Build GUI (X11)
+        run:
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags static -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          Equilotl-x11
+
+      - name: Build GUI (Wayland)
+        run:
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static wayland"
+          -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git
+          rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{
+          github.ref_name }}'" -o Equilotl-wayland
+
+      - name: Build GUI (Combined)
+        run:
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static combined"
+          -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git
+          rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{
+          github.ref_name }}'" -o Equilotl
+
+      - name: Build CLI
+        run:
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "cli" -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          EquilotlCli-linux
+
+      - name: Update executable
+        run: |
+          chmod +x Equilotl*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Equilotl-linux
+          path: |
+            Equilotl-x11
+            Equilotl-wayland
+            Equilotl
+            EquilotlCli-linux
+
+  build-mac:
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-15-intel
+            artifact_name: Equilotl-macos
+            gui_name: Equilotl-darwin-x64.zip
+            cli_name: EquilotlCli-darwin-x64
+          - arch: arm64
+            runner: macos-latest
+            artifact_name: Equilotl-macos-arm64
+            gui_name: Equilotl-darwin-arm64.zip
+            cli_name: EquilotlCli-darwin-arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/Library/Caches/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ matrix.arch }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.arch }}-go-
+
+      - name: Install dependencies
+        run: brew install sdl2
+
+      - name: Install Go dependencies
+        run: go get -v
+
+      - name: Build GUI
+        run: CGO_CFLAGS="-mmacosx-version-min=10.15"
+          CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin
+          GOARCH=${{ matrix.arch }} go build -v -tags "static gui" -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          Equilotl
+
+      - name: Build CLI
+        run: CGO_CFLAGS="-mmacosx-version-min=10.15"
+          CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin
+          GOARCH=${{ matrix.arch }} go build -v -tags "cli" -ldflags "-s
+          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
+          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
+          ${{ matrix.cli_name }}
+
+      - name: Update executable
+        run: |
+          chmod +x Equilotl*
+
+      - name: Generate MacOS GUI bundle
+        run: |
+          mkdir -p Equilotl.app/Contents/MacOS
+          mkdir -p Equilotl.app/Contents/Resources
+          cp macos/Info.plist Equilotl.app/Contents/Info.plist
+          mv Equilotl Equilotl.app/Contents/MacOS/Equilotl
+          cp macos/icon.icns Equilotl.app/Contents/Resources/icon.icns
+
+      - name: Import signing certificate
+        env:
+          CSC_LINK: ${{ secrets.APPLE_SIGNING_CERT }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
+        run: |
+          echo "$CSC_LINK" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+          rm certificate.p12
+
+      - name: Sign the executables
+        run: |
+          codesign --force --options runtime --sign "Developer ID Application" Equilotl.app/Contents/MacOS/Equilotl
+          codesign --force --options runtime --sign "Developer ID Application" Equilotl.app
+          codesign --force --options runtime --sign "Developer ID Application" ${{ matrix.cli_name }}
+
+      - name: Notarize the executables
+        env:
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          echo "$API_KEY" > apple.p8
+          ditto -c -k --keepParent Equilotl.app Equilotl-notarize.zip
+          ditto -c -k ${{ matrix.cli_name }} EquilotlCli-notarize.zip
+          xcrun notarytool submit Equilotl-notarize.zip --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple Equilotl.app
+          xcrun notarytool submit EquilotlCli-notarize.zip --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+          rm apple.p8 Equilotl-notarize.zip EquilotlCli-notarize.zip
+
+      - name: Create final zip
+        run: zip -r ${{ matrix.gui_name }} Equilotl.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.gui_name }}
+            ${{ matrix.cli_name }}
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~\AppData\Local\go-build
+            ~\go\pkg\mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          path-type: inherit
+
+      - name: Install Windows dependencies
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm git mingw-w64-x86_64-gcc mingw-w64-x86_64-SDL2
+
+      - name: Install Go dependencies
+        shell: msys2 {0}
+        run: |
+          go get -v
+          go install github.com/tc-hib/go-winres@latest
+
+      - name: Build GUI
+        shell: msys2 {0}
+        run: |
+          go-winres make --product-version "git-tag"
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl.exe
+
+      - name: Build CLI
+        shell: msys2 {0}
+        run: |
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Equilotl-windows
+          path: |
+            Equilotl.exe
+            EquilotlCli.exe
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-mac, build-windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: "Download Linux Artifacts"
+        uses: actions/download-artifact@v8
+        with:
+          name: Equilotl-linux
+          path: linux
+
+      - name: "Download MacOS Artifacts"
+        uses: actions/download-artifact@v8
+        with:
+          name: Equilotl-macos
+          path: macos
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: Equilotl-macos-arm64
+          path: macos
+
+      - name: "Download Windows Artifacts"
+        uses: actions/download-artifact@v8
+        with:
+          name: Equilotl-windows
+          path: windows
+
+      - name: Delete existing release
+        run: gh release delete "${{ github.ref_name }}" --yes || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
+          make_latest: ${{ !contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          draft: false
+          body: |
+            This is release ${{ github.ref_name }} of Equilotl.
+          files: |
+            linux/Equilotl-x11
+            linux/Equilotl-wayland
+            linux/Equilotl
+            linux/EquilotlCli-linux
+            macos/Equilotl-darwin-x64.zip
+            macos/Equilotl-darwin-arm64.zip
+            macos/EquilotlCli-darwin-x64
+            macos/EquilotlCli-darwin-arm64
+            windows/Equilotl*.exe
