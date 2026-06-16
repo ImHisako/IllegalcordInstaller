@@ -9,7 +9,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -36,7 +35,7 @@ var InstalledHash = "None"
 var LatestHash = "Unknown"
 var IsDevInstall bool
 
-func GetGithubRelease(url, fallbackUrl string) (*GithubRelease, error) {
+func GetGithubRelease(url string) (*GithubRelease, error) {
 	Log.Debug("Fetching", url)
 
 	req, err := http.NewRequest("GET", url, nil)
