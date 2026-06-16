@@ -53,7 +53,7 @@ func GetGithubRelease(url string) (*GithubRelease, error) {
 	}
 
 	defer res.Body.Close()
-
+	/*
 	if res.StatusCode >= 300 {
 
 		isRateLimitedOrBlocked := res.StatusCode == 401 || res.StatusCode == 403 || res.StatusCode == 429
@@ -69,7 +69,7 @@ func GetGithubRelease(url string) (*GithubRelease, error) {
 		Log.Error(url, "returned Non-OK status", GithubError)
 		return nil, err
 	}
-
+	*/
 	var data GithubRelease
 
 	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
