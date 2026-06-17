@@ -12,7 +12,7 @@ import (
 )
 
 const ReleaseUrl = "https://api.github.com/repos/ImHisako/Illegalcord/releases/latest"
-
+// Removed fallbacks since im lazy to buy a domain 
 // const ReleaseUrlFallback = "https://equicord.org/releases/equicord"
 const InstallerReleaseUrl = "https://api.github.com/repos/ImHisako/IllegalcordInstaller/releases"
 
