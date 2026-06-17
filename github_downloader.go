@@ -129,7 +129,7 @@ func InitGithubDownloader() {
 		return
 	}
 
-	Log.Debug("Found existing Equicord Install. Checking for hash...")
+	Log.Debug("Found existing Illegalcord Install. Checking for hash...")
 
 	re := regexp.MustCompile(`// Equicord (\w+)`)
 	match := re.FindSubmatch(b)

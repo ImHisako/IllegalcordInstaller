@@ -217,7 +217,7 @@ func cleanupDesyncedPatchedInstall(dir string, isSystemElectron bool) (bool, err
 		return false, nil
 	}
 
-	Log.Warn("Detected a patched install with a non-Equicord app.asar. Discord was likely updated while patched; removing stale _app.asar")
+	Log.Warn("Detected a patched install with a non-Illegalcord app.asar. Discord was likely updated while patched; removing stale _app.asar")
 
 	if err = os.Remove(_appAsar); err != nil {
 		return false, CheckIfErrIsCauseItsBusyRn(err)
