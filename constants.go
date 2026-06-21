@@ -27,7 +27,7 @@ var (
 	DiscordBlue   = color.RGBA{R: 0x58, G: 0x65, B: 0xF2, A: 0xFF}
 	DiscordYellow = color.RGBA{R: 0xfe, G: 0xe7, B: 0x5c, A: 0xff}
 )
-
+// Linux Names
 var LinuxDiscordNames = []string{
 	"Discord",
 	"DiscordPTB",
