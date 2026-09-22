@@ -73,7 +73,7 @@ func main() {
 	}
 
 	if *versionFlag {
-		fmt.Println("Equilotl Cli", buildinfo.InstallerTag, "("+buildinfo.InstallerGitHash+")")
+		fmt.Println("Illegalcord Installer CLI", buildinfo.InstallerTag, "("+buildinfo.InstallerGitHash+")")
 		fmt.Println("Copyright (C) 2026 ImHisako & Illegalcord contributors")
 		fmt.Println("Copyright (C) 2026 Vendicated, thororen1234, Vencord, and Equicord contributors")
 		fmt.Println("License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.")
@@ -101,7 +101,7 @@ func main() {
 
 	if *installFlag || *updateFlag {
 		if !<-GithubDoneChan {
-			die("Not " + Ternary(*installFlag, "installing", "updating") + " as fetching release data failed")
+			die("Not " + Ternary(*installFlag, "installing", "updating") + " as fetching release data failed. If this issue persists, see " + SupportUrl)
 		}
 	}
 
@@ -114,7 +114,7 @@ func main() {
 			<-SelfUpdateCheckDoneChan
 			if IsSelfOutdated {
 				Log.Warn("Your installer is outdated.")
-				Log.Warn("To update, select the 'Update Equilotl' option to update, or run with --update-self")
+				Log.Warn("To update, select the 'Update Illegalcord Installer' option to update, or run with --update-self")
 			}
 		}()
 
@@ -125,7 +125,7 @@ func main() {
 			"Install OpenAsar",
 			"Uninstall OpenAsar",
 			"View Help Menu",
-			"Update Equilotl",
+			"Update Illegalcord Installer",
 			"Quit",
 		}
 		_, choice, err := (&promptui.Select{
@@ -141,7 +141,7 @@ func main() {
 			return
 		case "Quit":
 			return
-		case "Update Equilotl":
+		case "Update Illegalcord Installer":
 			if err := UpdateSelf(); err != nil {
 				Log.Error("Failed to update self:", err)
 				exitFailure()
@@ -207,7 +207,7 @@ func exitSuccess() {
 }
 
 func exitFailure() {
-	color.HiRed("❌ Failed!")
+	color.HiRed("❌ Failed! If this issue persists, see " + SupportUrl)
 	exit(1)
 }
 
@@ -229,7 +229,7 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 				}
 			}
 		}
-		die("No Discord install found. Try manually specifying it with the --dir flag. Hint: snap is not supported")
+		die("No Discord install found. Before proceeding, make sure Discord is installed. snap is not supported!")
 	}
 
 	if branch != "" {
@@ -256,7 +256,7 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 	items := SliceMap(discords, func(d any) string {
 		install := d.(*DiscordInstall)
 		//goland:noinspection GoDeprecation
-		return fmt.Sprintf("%s - %s%s", strings.Title(install.branch), install.path, Ternary(install.isPatched, " [PATCHED]", ""))
+		return fmt.Sprintf("%s - %s%s", strings.Title(install.branch), install.path, Ternary(install.isPatched, " [Illegalcord Installed]", ""))
 	})
 	items = append(items, "Custom Location")
 
@@ -291,6 +291,10 @@ func PromptDiscord(action, dir, branch string) *DiscordInstall {
 }
 
 func InstallLatestBuilds() error {
+	if IsDevInstall {
+		return nil
+	}
+
 	return installLatestBuilds()
 }
 

@@ -13,7 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
+	path "path/filepath"
 	"runtime"
 	"time"
 )
@@ -46,22 +46,39 @@ func init() {
 }
 
 func GetInstallerDownloadLink() string {
+	return installerDownloadLink(runtime.GOOS, runtime.GOARCH, buildinfo.UiType == buildinfo.UiTypeCli)
+}
+
+func installerDownloadLink(goos, goarch string, cli bool) string {
 	const BaseUrl = "https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/"
-	switch runtime.GOOS {
+	if goarch != "amd64" && goarch != "arm64" {
+		return ""
+	}
+	switch goos {
 	case "windows":
-		filename := Ternary(buildinfo.UiType == buildinfo.UiTypeCli, "EquilotlCli.exe", "Equilotl.exe")
-		return BaseUrl + filename
+		filename := Ternary(cli, "EquilotlCli", "Equilotl")
+		if goarch == "arm64" {
+			filename += "-arm64"
+		}
+		return BaseUrl + filename + ".exe"
 	case "darwin":
-		switch runtime.GOARCH {
+		if cli {
+			return BaseUrl + "EquilotlCli-" + Ternary(goarch == "amd64", "x64", "arm64")
+		}
+		switch goarch {
 		case "amd64":
-			return BaseUrl + "Equilotl-darwin-x64.zip"
+			return BaseUrl + "Equilotl-x64.dmg"
 		case "arm64":
-			return BaseUrl + "Equilotl-darwin-arm64.zip"
+			return BaseUrl + "Equilotl-arm64.dmg"
 		default:
 			return ""
 		}
 	case "linux":
-		return BaseUrl + "EquilotlCli-linux"
+		filename := Ternary(cli, "EquilotlCli-linux", "Equilotl")
+		if goarch == "arm64" {
+			filename += "-arm64"
+		}
+		return BaseUrl + filename
 	default:
 		return ""
 	}
@@ -96,6 +113,9 @@ func UpdateSelf() error {
 		return err
 	}
 	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("Failed to download installer: %s", res.Status)
+	}
 
 	tmp, err := os.CreateTemp(ownExeDir, "EquilotlUpdate")
 	if err != nil {
@@ -152,12 +172,7 @@ func RelaunchSelf() error {
 	attr := new(os.ProcAttr)
 	attr.Files = []*os.File{os.Stdin, os.Stdout, os.Stderr}
 
-	var argv []string
-	if len(os.Args) > 1 {
-		argv = os.Args[1:]
-	} else {
-		argv = []string{}
-	}
+	argv := os.Args
 
 	Log.Debug("Restarting self with exe", os.Args[0], "and args", argv)
 

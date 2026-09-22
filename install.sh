@@ -7,7 +7,7 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 if grep -q "CHROMEOS_RELEASE_NAME" /etc/lsb-release 2>/dev/null; then
-	echo "ChromeOS is not supported! Use the chrome extension. https://chromewebstore.google.com/detail/equicord-web/mcambpfmpjnncfoodejdmehedbkjepmi"
+	echo "Illegalcord desktop installation is not supported on ChromeOS."
 	exit 1
 fi
 
@@ -18,7 +18,13 @@ echo "Downloading Installer..."
 
 set -- "XDG_CONFIG_HOME=$XDG_CONFIG_HOME"
 
-curl -sS https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-Linux \
+case "$(uname -m)" in
+  aarch64|arm64) binary="EquilotlCli-linux-arm64" ;;
+  x86_64|amd64) binary="EquilotlCli-linux" ;;
+  *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+esac
+
+curl -sS "https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/$binary" \
   --output "$outfile" \
   --location \
   --fail

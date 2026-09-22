@@ -12,22 +12,22 @@ import (
 )
 
 const ReleaseUrl = "https://api.github.com/repos/ImHisako/Illegalcord/releases/latest"
-// Removed fallbacks since im lazy to buy a domain 
-// const ReleaseUrlFallback = "https://equicord.org/releases/equicord"
 const InstallerReleaseUrl = "https://api.github.com/repos/ImHisako/IllegalcordInstaller/releases/latest"
-
-
-// const InstallerReleaseUrlFallback = "https://equicord.org/releases/equilotl"
 
 var UserAgent = "IllegalcordInstaller/" + buildinfo.InstallerGitHash + " (https://github.com/ImHisako/IllegalcordInstaller)"
 
+const SupportUrl = "https://github.com/ImHisako/IllegalcordInstaller/issues"
+
 var (
-	DiscordGreen  = color.RGBA{R: 0x2D, G: 0x7C, B: 0x46, A: 0xFF}
-	DiscordRed    = color.RGBA{R: 0xEC, G: 0x41, B: 0x44, A: 0xFF}
-	DiscordBlue   = color.RGBA{R: 0x58, G: 0x65, B: 0xF2, A: 0xFF}
-	DiscordYellow = color.RGBA{R: 0xfe, G: 0xe7, B: 0x5c, A: 0xff}
+	DiscordGreen        = color.RGBA{0, 133, 69, 0xff}
+	DiscordGreenHovered = color.RGBA{0, 108, 55, 0xff}
+	DiscordRed          = color.RGBA{210, 45, 57, 0xff}
+	DiscordRedHovered   = color.RGBA{169, 35, 46, 0xff}
+	DiscordBlue         = color.RGBA{88, 101, 242, 0xff}
+	DiscordBlueHovered  = color.RGBA{68, 82, 187, 0xff}
+	DiscordYellow       = color.RGBA{0xfe, 0xe7, 0x5c, 0xff}
 )
-// Linux Names
+
 var LinuxDiscordNames = []string{
 	"Discord",
 	"DiscordPTB",

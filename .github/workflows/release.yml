@@ -14,18 +14,18 @@ permissions:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest # Go without CGO seems to not depend on glibc, so building on latest should be fine
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.26.2"
+          go-version: "1.26"
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/go-build
@@ -80,7 +80,7 @@ jobs:
           chmod +x Equilotl*
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Equilotl-linux
           path: |
@@ -89,9 +89,69 @@ jobs:
             Equilotl
             EquilotlCli-linux
 
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm # Native ARM64 runner, the GUI needs ARM64 X11/Wayland/GL libraries
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-arm64-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-arm64-go-
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y pkg-config libsdl2-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libglx-dev libgl1-mesa-dev libxxf86vm-dev libglfw3-dev libwayland-dev libwayland-egl1 libegl-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
+
+      - name: Install Go dependencies
+        run: go get -v
+
+      - name: Recreate vendor and apply Wayland patches
+        run: |
+          go mod vendor
+          git apply patches/wayland.patch
+
+      - name: Build GUI (X11)
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags static -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-x11-arm64
+
+      - name: Build GUI (Wayland)
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static wayland" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-wayland-arm64
+
+      - name: Build GUI (Combined)
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static combined" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-arm64
+
+      - name: Build CLI
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli-linux-arm64
+
+      - name: Update executable
+        run: |
+          chmod +x Equilotl*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Equilotl-linux-arm64
+          path: |
+            Equilotl-x11-arm64
+            Equilotl-wayland-arm64
+            Equilotl-arm64
+            EquilotlCli-linux-arm64
+
   build-mac:
-    runs-on: ${{ matrix.runner }}
     continue-on-error: true
+    runs-on: ${{ matrix.runner }}
 
     strategy:
       fail-fast: false
@@ -100,13 +160,12 @@ jobs:
           - arch: amd64
             runner: macos-15-intel
             artifact_name: Equilotl-macos
-            gui_name: Equilotl-darwin-x64.zip
-            cli_name: EquilotlCli-darwin-x64
+            dmg_name: Equilotl-x64.dmg
           - arch: arm64
             runner: macos-latest
             artifact_name: Equilotl-macos-arm64
-            gui_name: Equilotl-darwin-arm64.zip
-            cli_name: EquilotlCli-darwin-arm64
+            dmg_name: Equilotl-arm64.dmg
+
     steps:
       - name: Check macOS signing configuration
         id: mac_signing
@@ -126,7 +185,7 @@ jobs:
 
           if [ -n "$missing" ]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Skipping macOS ${{ matrix.arch }} build because these Apple signing/notarization secrets are missing:$missing"
+            echo "::notice::Skipping macOS build because these Apple signing/notarization secrets are missing:$missing"
             exit 0
           fi
 
@@ -134,15 +193,15 @@ jobs:
 
       - name: Checkout code
         if: steps.mac_signing.outputs.enabled == 'true'
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Go
         if: steps.mac_signing.outputs.enabled == 'true'
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.2"
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.mac_signing.outputs.enabled == 'true'
         with:
           path: |
@@ -154,43 +213,11 @@ jobs:
 
       - name: Install dependencies
         if: steps.mac_signing.outputs.enabled == 'true'
-        run: brew install sdl2
+        run: brew install sdl2 create-dmg
 
       - name: Install Go dependencies
         if: steps.mac_signing.outputs.enabled == 'true'
         run: go get -v
-
-      - name: Build GUI
-        if: steps.mac_signing.outputs.enabled == 'true'
-        run: CGO_CFLAGS="-mmacosx-version-min=10.15"
-          CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin
-          GOARCH=${{ matrix.arch }} go build -v -tags "static gui" -ldflags "-s
-          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
-          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
-          Equilotl
-
-      - name: Build CLI
-        if: steps.mac_signing.outputs.enabled == 'true'
-        run: CGO_CFLAGS="-mmacosx-version-min=10.15"
-          CGO_LDFLAGS="-mmacosx-version-min=10.15" CGO_ENABLED=1 GOOS=darwin
-          GOARCH=${{ matrix.arch }} go build -v -tags "cli" -ldflags "-s
-          -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
-          HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
-          ${{ matrix.cli_name }}
-
-      - name: Update executable
-        if: steps.mac_signing.outputs.enabled == 'true'
-        run: |
-          chmod +x Equilotl*
-
-      - name: Generate MacOS GUI bundle
-        if: steps.mac_signing.outputs.enabled == 'true'
-        run: |
-          mkdir -p Equilotl.app/Contents/MacOS
-          mkdir -p Equilotl.app/Contents/Resources
-          cp macos/Info.plist Equilotl.app/Contents/Info.plist
-          mv Equilotl Equilotl.app/Contents/MacOS/Equilotl
-          cp macos/icon.icns Equilotl.app/Contents/Resources/icon.icns
 
       - name: Import signing certificate
         if: steps.mac_signing.outputs.enabled == 'true'
@@ -225,14 +252,13 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
           rm "$CERTIFICATE_PATH"
 
-      - name: Sign the executables
+      - name: Build DMG
         if: steps.mac_signing.outputs.enabled == 'true'
         run: |
-          codesign --force --options runtime --sign "Developer ID Application" Equilotl.app/Contents/MacOS/Equilotl
-          codesign --force --options runtime --sign "Developer ID Application" Equilotl.app
-          codesign --force --options runtime --sign "Developer ID Application" ${{ matrix.cli_name }}
+          make ARCH=${{ matrix.arch }} GUI=1 DMG=1 IDENTITY="Developer ID Application" VERSION=${{ github.ref_name }}
+          mv build/Equilotl.dmg ${{ matrix.dmg_name }}
 
-      - name: Notarize the executables
+      - name: Notarize the DMG
         if: steps.mac_signing.outputs.enabled == 'true'
         env:
           API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -240,43 +266,184 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           echo "$API_KEY" > apple.p8
-          ditto -c -k --keepParent Equilotl.app Equilotl-notarize.zip
-          ditto -c -k ${{ matrix.cli_name }} EquilotlCli-notarize.zip
-          xcrun notarytool submit Equilotl-notarize.zip --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-          xcrun stapler staple Equilotl.app
-          xcrun notarytool submit EquilotlCli-notarize.zip --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-          rm apple.p8 Equilotl-notarize.zip EquilotlCli-notarize.zip
+          xcrun notarytool submit ${{ matrix.dmg_name }} --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple ${{ matrix.dmg_name }}
+          rm apple.p8
 
       - name: Clean up signing keychain
         if: always() && steps.mac_signing.outputs.enabled == 'true'
         run: security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
 
-      - name: Create final zip
+      - name: Upload artifact
         if: steps.mac_signing.outputs.enabled == 'true'
-        run: zip -r ${{ matrix.gui_name }} Equilotl.app
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.dmg_name }}
+
+  build-mac-dmg:
+    continue-on-error: true
+    runs-on: macos-latest
+
+    steps:
+      - name: Check macOS signing configuration
+        id: mac_signing
+        env:
+          APPLE_SIGNING_CERT: ${{ secrets.APPLE_SIGNING_CERT }}
+          APPLE_SIGNING_CERT_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          missing=""
+          [ -z "$APPLE_SIGNING_CERT" ] && missing="$missing APPLE_SIGNING_CERT"
+          [ -z "$APPLE_SIGNING_CERT_PASSWORD" ] && missing="$missing APPLE_SIGNING_CERT_PASSWORD"
+          [ -z "$APPLE_API_KEY" ] && missing="$missing APPLE_API_KEY"
+          [ -z "$APPLE_API_KEY_ID" ] && missing="$missing APPLE_API_KEY_ID"
+          [ -z "$APPLE_API_ISSUER" ] && missing="$missing APPLE_API_ISSUER"
+
+          if [ -n "$missing" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping macOS build because these Apple signing/notarization secrets are missing:$missing"
+            exit 0
+          fi
+
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        if: steps.mac_signing.outputs.enabled == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Go
+        if: steps.mac_signing.outputs.enabled == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.mac_signing.outputs.enabled == 'true'
+        with:
+          path: |
+            ~/Library/Caches/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-universal-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-universal-go-
+
+      - name: Install dependencies
+        if: steps.mac_signing.outputs.enabled == 'true'
+        run: brew install sdl2 create-dmg
+
+      - name: Install Go dependencies
+        if: steps.mac_signing.outputs.enabled == 'true'
+        run: go get -v
+
+      - name: Import signing certificate
+        if: steps.mac_signing.outputs.enabled == 'true'
+        env:
+          APPLE_SIGNING_CERT: ${{ secrets.APPLE_SIGNING_CERT }}
+          APPLE_SIGNING_CERT_PASSWORD: ${{ secrets.APPLE_SIGNING_CERT_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH="$RUNNER_TEMP/certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          CERTIFICATE_DATA="${APPLE_SIGNING_CERT#data:*;base64,}"
+
+          decode_certificate() {
+            printf "%s" "$CERTIFICATE_DATA" | base64 --decode > "$CERTIFICATE_PATH" 2>/dev/null && return 0
+            printf "%s" "$CERTIFICATE_DATA" | base64 -D > "$CERTIFICATE_PATH"
+          }
+
+          if ! decode_certificate || [ ! -s "$CERTIFICATE_PATH" ]; then
+            echo "::error::APPLE_SIGNING_CERT did not decode to a valid .p12 file."
+            exit 1
+          fi
+
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+
+          if ! security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_SIGNING_CERT_PASSWORD" -T /usr/bin/codesign; then
+            echo "::error::Could not import APPLE_SIGNING_CERT. Verify that it is a base64-encoded .p12 and that APPLE_SIGNING_CERT_PASSWORD matches the export password."
+            exit 1
+          fi
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          rm "$CERTIFICATE_PATH"
+
+      - name: Build universal DMG
+        if: steps.mac_signing.outputs.enabled == 'true'
+        run: make ARCH=universal GUI=1 DMG=1 IDENTITY="Developer ID Application" VERSION=${{ github.ref_name }}
+
+      - name: Notarize the DMG
+        if: steps.mac_signing.outputs.enabled == 'true'
+        env:
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          echo "$API_KEY" > apple.p8
+          xcrun notarytool submit build/Equilotl.dmg --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple build/Equilotl.dmg
+          rm apple.p8
+
+      - name: Build CLI
+        if: steps.mac_signing.outputs.enabled == 'true'
+        run: |
+          make ARCH=amd64 GUI=0 VERSION=${{ github.ref_name }}
+          mv build/EquilotlCli-darwin build/EquilotlCli-x64
+          make ARCH=arm64 GUI=0 VERSION=${{ github.ref_name }}
+          mv build/EquilotlCli-darwin build/EquilotlCli-arm64
+          make ARCH=universal GUI=0 VERSION=${{ github.ref_name }}
+          mv build/EquilotlCli-darwin build/EquilotlCli-universal
+          for f in build/EquilotlCli-*; do
+            codesign --force --options runtime --sign "Developer ID Application" "$f"
+            lipo -info "$f"
+          done
+
+      - name: Notarize the CLI
+        if: steps.mac_signing.outputs.enabled == 'true'
+        env:
+          API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          echo "$API_KEY" > apple.p8
+          for f in build/EquilotlCli-*; do
+            ditto -c -k "$f" "$f.zip"
+            xcrun notarytool submit "$f.zip" --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+            rm "$f.zip"
+          done
+          rm apple.p8
+
+      - name: Clean up signing keychain
+        if: always() && steps.mac_signing.outputs.enabled == 'true'
+        run: security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
 
       - name: Upload artifact
         if: steps.mac_signing.outputs.enabled == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.artifact_name }}
+          name: Equilotl-macos-universal
           path: |
-            ${{ matrix.gui_name }}
-            ${{ matrix.cli_name }}
+            build/Equilotl.dmg
+            build/EquilotlCli-x64
+            build/EquilotlCli-arm64
+            build/EquilotlCli-universal
 
   build-windows:
     runs-on: windows-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.2"
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~\AppData\Local\go-build
@@ -286,7 +453,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Setup MSYS2
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           path-type: inherit
 
@@ -299,7 +466,7 @@ jobs:
         shell: msys2 {0}
         run: |
           go get -v
-          go install github.com/tc-hib/go-winres@latest
+          go install github.com/tc-hib/go-winres@d743268d7ea168077ddd443c4240562d4f5e8c3e  # v0.3.3
 
       - name: Build GUI
         shell: msys2 {0}
@@ -311,84 +478,127 @@ jobs:
         shell: msys2 {0}
         run: |
           CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli.exe
+          cp EquilotlCli.exe EquilotlCli-x64.exe # Explicit arch in the name, winget picks installers by it
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Equilotl-windows
           path: |
             Equilotl.exe
             EquilotlCli.exe
+            EquilotlCli-x64.exe
 
-  release:
-    runs-on: ubuntu-latest
-    needs: [build-linux, build-mac, build-windows]
-    if: always() && needs.build-linux.result == 'success' && needs.build-windows.result == 'success'
+  build-windows-arm64:
+    runs-on: windows-latest # No ARM64 runner needed, the ARM64 binaries are cross-compiled
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.2"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~\AppData\Local\go-build
+            ~\go\pkg\mod
+          key: ${{ runner.os }}-arm64-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-arm64-go-
+
+      # The GUI needs a C/C++ compiler targeting ARM64 Windows, llvm-mingw provides one
+      - name: Install llvm-mingw
+        shell: pwsh
+        run: |
+          $version = "20260908"
+          $sha256 = "1bcf74d06b724aeecaa6412ca85f5b26fb1da770e7cdcefa9263c9c5c3ad34b6"
+          $zip = "$env:RUNNER_TEMP\llvm-mingw.zip"
+          Invoke-WebRequest "https://github.com/mstorsjo/llvm-mingw/releases/download/$version/llvm-mingw-$version-ucrt-x86_64.zip" -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $sha256) { throw "llvm-mingw checksum mismatch" }
+          Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP
+          "$env:RUNNER_TEMP\llvm-mingw-$version-ucrt-x86_64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Install Go dependencies
+        shell: bash
+        run: |
+          go get -v
+          go install github.com/tc-hib/go-winres@d743268d7ea168077ddd443c4240562d4f5e8c3e  # v0.3.3
+
+      - name: Build GUI
+        shell: bash
+        run: |
+          "$(go env GOPATH)/bin/go-winres" make --arch arm64 --product-version "git-tag"
+          CGO_ENABLED=1 GOOS=windows GOARCH=arm64 CC=aarch64-w64-mingw32-clang CXX=aarch64-w64-mingw32-clang++ go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-arm64.exe
+
+      - name: Build CLI
+        shell: bash
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli-arm64.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Equilotl-windows-arm64
+          path: |
+            Equilotl-arm64.exe
+            EquilotlCli-arm64.exe
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-linux-arm64, build-mac, build-mac-dmg, build-windows, build-windows-arm64]
+    if: always() && needs.build-linux.result == 'success' && needs.build-linux-arm64.result == 'success' && needs.build-windows.result == 'success' && needs.build-windows-arm64.result == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: "Download Linux Artifacts"
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: Equilotl-linux
           path: linux
 
+      - name: "Download Linux ARM64 Artifacts"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Equilotl-linux-arm64
+          path: linux
+
       - name: "Download MacOS Artifacts"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
-        uses: actions/download-artifact@v8
         with:
           name: Equilotl-macos
           path: macos
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
           name: Equilotl-macos-arm64
           path: macos
 
+      - name: "Download MacOS DMG"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: Equilotl-macos-universal
+          path: macos
+
       - name: "Download Windows Artifacts"
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: Equilotl-windows
           path: windows
 
-      - name: Collect release files
-        id: release_files
-        run: |
-          files=(
-            linux/Equilotl-x11
-            linux/Equilotl-wayland
-            linux/Equilotl
-            linux/EquilotlCli-linux
-            macos/Equilotl-darwin-x64.zip
-            macos/Equilotl-darwin-arm64.zip
-            macos/EquilotlCli-darwin-x64
-            macos/EquilotlCli-darwin-arm64
-            windows/Equilotl.exe
-            windows/EquilotlCli.exe
-          )
-
-          : > release-files.txt
-          for file in "${files[@]}"; do
-            if [ -f "$file" ]; then
-              echo "$file" >> release-files.txt
-            else
-              echo "::notice::Skipping missing release file: $file"
-            fi
-          done
-
-          if [ ! -s release-files.txt ]; then
-            echo "::error::No release files were found."
-            exit 1
-          fi
-
-          {
-            echo "files<<EOF"
-            cat release-files.txt
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: "Download Windows ARM64 Artifacts"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: Equilotl-windows-arm64
+          path: windows
 
       - name: Delete existing release
         run: gh release delete "${{ github.ref_name }}" --yes || true
@@ -396,7 +606,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create the release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           name: ${{ github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -405,5 +615,20 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           draft: false
           body: |
-            This is release ${{ github.ref_name }} of Equilotl.
-          files: ${{ steps.release_files.outputs.files }}
+            This is release ${{ github.ref_name }} of Illegalcord Installer.
+          files: |
+            linux/Equilotl-x11
+            linux/Equilotl-wayland
+            linux/Equilotl
+            linux/EquilotlCli-linux
+            linux/Equilotl-x11-arm64
+            linux/Equilotl-wayland-arm64
+            linux/Equilotl-arm64
+            linux/EquilotlCli-linux-arm64
+            macos/Equilotl-x64.dmg
+            macos/Equilotl-arm64.dmg
+            macos/Equilotl.dmg
+            macos/EquilotlCli-x64
+            macos/EquilotlCli-arm64
+            macos/EquilotlCli-universal
+            windows/Equilotl*.exe

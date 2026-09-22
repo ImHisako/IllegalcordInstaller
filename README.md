@@ -1,25 +1,38 @@
-# Equilotl
+# Illegalcord Installer
 
-The Equicord Installer allows you to install [Equicord, the cutest Discord Desktop client mod](https://github.com/Equicord/Equicord)
+Install [Illegalcord, a Discord Desktop client mod](https://github.com/ImHisako/Illegalcord)
 
-![image](https://i.imgur.com/oHN41ss.png)
+Based on [Equilotl](https://github.com/Equicord/Equilotl). Executable names remain `Equilotl*` for compatibility with existing installations and the Illegalcord development installer.
 
 ## Usage
 
 Windows
 
-- [GUI](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl.exe)
-- [CLI](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli.exe)
+| | X64 | ARM64 |
+| --- | --- | --- |
+| GUI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl.exe) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-arm64.exe) |
+| CLI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli.exe) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-arm64.exe) |
 
 MacOS
 
-- [X64 GUI](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-darwin-x64.zip)
-- [ARM64 GUI](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-darwin-arm64.zip)
+| | Universal | X64 | ARM64 |
+| --- | --- | --- | --- |
+| GUI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl.dmg) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-x64.dmg) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-arm64.dmg) |
+| CLI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-universal) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-x64) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-arm64) |
+
+macOS builds are published when Apple signing and notarization credentials are configured in the release workflow.
+
+The CLI builds are plain binaries, so run `chmod +x <file>` after downloading.
 
 Linux
 
-- [GUI](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-x11)
-- [CLI](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-Linux)
+| | X64 | ARM64 |
+| --- | --- | --- |
+| Combined GUI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-arm64) |
+| X11 GUI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-x11) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-x11-arm64) |
+| Wayland GUI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-wayland) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Equilotl-wayland-arm64) |
+| CLI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-linux) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/EquilotlCli-linux-arm64) |
+
 
 ## Building from source
 
@@ -66,13 +79,13 @@ go mod tidy
 ##### Windows / Mac / Linux X11
 
 ```sh
-go build
+make GUI=1
 ```
 
 ##### Linux Wayland
 
 ```sh
-go build --tags wayland
+make GUI=1 WAYLAND=1
 ```
 
 #### Build the CLI
@@ -83,3 +96,7 @@ go build --tags cli
 
 You might want to pass some flags to this command to get a better build.
 See [the GitHub workflow](https://github.com/ImHisako/IllegalcordInstaller/blob/main/.github/workflows/release.yml) for what flags I pass or if you want more precise instructions
+
+## Compatibility
+
+Illegalcord currently uses the upstream `EQUICORD_USER_DATA_DIR`, `EQUICORD_DIRECTORY`, and `EQUICORD_DEV_INSTALL` variables, the `Equicord` data directory, and `equicord.asar`. These names are intentionally preserved. Client builds and installer updates are downloaded from the ImHisako repositories.

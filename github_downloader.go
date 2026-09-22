@@ -53,23 +53,11 @@ func GetGithubRelease(url string) (*GithubRelease, error) {
 	}
 
 	defer res.Body.Close()
-	/*
-	if res.StatusCode >= 300 {
-
-		isRateLimitedOrBlocked := res.StatusCode == 401 || res.StatusCode == 403 || res.StatusCode == 429
-		triedFallback := url == fallbackUrl
-
-		if isRateLimitedOrBlocked && !triedFallback {
-			Log.Error(fmt.Sprintf("Failed to fetch %s (status code %d). Trying fallback url %s", url, res.StatusCode, fallbackUrl))
-			return GetGithubRelease(fallbackUrl, fallbackUrl)
-		}
-
-
+	if res.StatusCode != http.StatusOK {
 		err = errors.New(res.Status)
-		Log.Error(url, "returned Non-OK status", GithubError)
+		Log.Error(url, "returned Non-OK status", err)
 		return nil, err
 	}
-	*/
 	var data GithubRelease
 
 	if err = json.NewDecoder(res.Body).Decode(&data); err != nil {
@@ -168,13 +156,14 @@ func installLatestBuilds() (retErr error) {
 	Log.Debug("Downloading desktop.asar")
 
 	res, err := http.Get(downloadUrl)
-	if err == nil && res.StatusCode >= 300 {
-		err = errors.New(res.Status)
-	}
 	if err != nil {
 		Log.Error("Failed to download desktop.asar:", err)
 		retErr = err
 		return
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return errors.New(res.Status)
 	}
 	out, err := os.OpenFile(EquicordDirectory, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -182,6 +171,7 @@ func installLatestBuilds() (retErr error) {
 		retErr = err
 		return
 	}
+	defer out.Close()
 	read, err := io.Copy(out, res.Body)
 	if err != nil {
 		Log.Error("Failed to download to", EquicordDirectory+":", err)
@@ -190,11 +180,14 @@ func installLatestBuilds() (retErr error) {
 	}
 	contentLength := res.Header.Get("Content-Length")
 	expected := strconv.FormatInt(read, 10)
-	if expected != contentLength {
+	if contentLength != "" && expected != contentLength {
 		err = errors.New("Unexpected end of input. Content-Length was " + contentLength + ", but I only read " + expected)
 		Log.Error(err.Error())
 		retErr = err
 		return
+	}
+	if err := out.Close(); err != nil {
+		return err
 	}
 
 	_ = FixOwnership(EquicordDirectory)
