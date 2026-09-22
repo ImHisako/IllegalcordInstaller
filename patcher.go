@@ -8,7 +8,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	path "path/filepath"
@@ -194,6 +196,32 @@ func isEquicordLoaderAppAsar(appAsar string) (bool, error) {
 	stat, err := os.Stat(appAsar)
 	if err != nil {
 		return false, err
+	}
+	if stat.IsDir() {
+		// Older installers used an unpacked loader directory named app.asar.
+		// Verify it before allowing unpatch to replace it with the original archive.
+		manifest, err := os.ReadFile(path.Join(appAsar, "package.json"))
+		if err != nil {
+			return false, err
+		}
+		var pkg struct {
+			Name string `json:"name"`
+			Main string `json:"main"`
+		}
+		if err := json.Unmarshal(manifest, &pkg); err != nil {
+			return false, fmt.Errorf("Cannot recognize the app.asar directory; the Discord backup was preserved: %w", err)
+		}
+		if pkg.Name != "discord" || pkg.Main != "index.js" {
+			return false, errors.New("Unrecognized app.asar directory. The Discord backup was preserved")
+		}
+		index, err := os.ReadFile(path.Join(appAsar, "index.js"))
+		if err != nil {
+			return false, err
+		}
+		if !bytes.Contains(index, []byte("require(")) {
+			return false, errors.New("Unrecognized app.asar directory loader. The Discord backup was preserved")
+		}
+		return true, nil
 	}
 	if stat.Size() > 128*1024 {
 		return false, nil
