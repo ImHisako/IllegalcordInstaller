@@ -52,42 +52,42 @@ jobs:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags static -ldflags "-s
           -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
           HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
-          Equilotl-x11
+          Illegalotl-x11
 
       - name: Build GUI (Wayland)
         run:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static wayland"
           -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git
           rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{
-          github.ref_name }}'" -o Equilotl-wayland
+          github.ref_name }}'" -o Illegalotl-wayland
 
       - name: Build GUI (Combined)
         run:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "static combined"
           -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git
           rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{
-          github.ref_name }}'" -o Equilotl
+          github.ref_name }}'" -o Illegalotl
 
       - name: Build CLI
         run:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags "cli" -ldflags "-s
           -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short
           HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o
-          EquilotlCli-linux
+          IllegalotlCli-linux
 
       - name: Update executable
         run: |
-          chmod +x Equilotl*
+          chmod +x Illegalotl*
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Equilotl-linux
+          name: Illegalotl-linux
           path: |
-            Equilotl-x11
-            Equilotl-wayland
-            Equilotl
-            EquilotlCli-linux
+            Illegalotl-x11
+            Illegalotl-wayland
+            Illegalotl
+            IllegalotlCli-linux
 
   build-linux-arm64:
     runs-on: ubuntu-24.04-arm # Native ARM64 runner, the GUI needs ARM64 X11/Wayland/GL libraries
@@ -124,30 +124,30 @@ jobs:
           git apply patches/wayland.patch
 
       - name: Build GUI (X11)
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags static -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-x11-arm64
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags static -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-x11-arm64
 
       - name: Build GUI (Wayland)
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static wayland" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-wayland-arm64
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static wayland" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-wayland-arm64
 
       - name: Build GUI (Combined)
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static combined" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-arm64
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static combined" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-arm64
 
       - name: Build CLI
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli-linux-arm64
+        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli-linux-arm64
 
       - name: Update executable
         run: |
-          chmod +x Equilotl*
+          chmod +x Illegalotl*
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Equilotl-linux-arm64
+          name: Illegalotl-linux-arm64
           path: |
-            Equilotl-x11-arm64
-            Equilotl-wayland-arm64
-            Equilotl-arm64
-            EquilotlCli-linux-arm64
+            Illegalotl-x11-arm64
+            Illegalotl-wayland-arm64
+            Illegalotl-arm64
+            IllegalotlCli-linux-arm64
 
   build-mac:
     continue-on-error: true
@@ -159,12 +159,12 @@ jobs:
         include:
           - arch: amd64
             runner: macos-15-intel
-            artifact_name: Equilotl-macos
-            dmg_name: Equilotl-x64.dmg
+            artifact_name: Illegalotl-macos
+            dmg_name: Illegalotl-x64.dmg
           - arch: arm64
             runner: macos-latest
-            artifact_name: Equilotl-macos-arm64
-            dmg_name: Equilotl-arm64.dmg
+            artifact_name: Illegalotl-macos-arm64
+            dmg_name: Illegalotl-arm64.dmg
 
     steps:
       - name: Check macOS signing configuration
@@ -256,7 +256,7 @@ jobs:
         if: steps.mac_signing.outputs.enabled == 'true'
         run: |
           make ARCH=${{ matrix.arch }} GUI=1 DMG=1 IDENTITY="Developer ID Application" VERSION=${{ github.ref_name }}
-          mv build/Equilotl.dmg ${{ matrix.dmg_name }}
+          mv build/Illegalotl.dmg ${{ matrix.dmg_name }}
 
       - name: Notarize the DMG
         if: steps.mac_signing.outputs.enabled == 'true'
@@ -383,20 +383,20 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           echo "$API_KEY" > apple.p8
-          xcrun notarytool submit build/Equilotl.dmg --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-          xcrun stapler staple build/Equilotl.dmg
+          xcrun notarytool submit build/Illegalotl.dmg --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple build/Illegalotl.dmg
           rm apple.p8
 
       - name: Build CLI
         if: steps.mac_signing.outputs.enabled == 'true'
         run: |
           make ARCH=amd64 GUI=0 VERSION=${{ github.ref_name }}
-          mv build/EquilotlCli-darwin build/EquilotlCli-x64
+          mv build/IllegalotlCli-darwin build/IllegalotlCli-x64
           make ARCH=arm64 GUI=0 VERSION=${{ github.ref_name }}
-          mv build/EquilotlCli-darwin build/EquilotlCli-arm64
+          mv build/IllegalotlCli-darwin build/IllegalotlCli-arm64
           make ARCH=universal GUI=0 VERSION=${{ github.ref_name }}
-          mv build/EquilotlCli-darwin build/EquilotlCli-universal
-          for f in build/EquilotlCli-*; do
+          mv build/IllegalotlCli-darwin build/IllegalotlCli-universal
+          for f in build/IllegalotlCli-*; do
             codesign --force --options runtime --sign "Developer ID Application" "$f"
             lipo -info "$f"
           done
@@ -409,7 +409,7 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         run: |
           echo "$API_KEY" > apple.p8
-          for f in build/EquilotlCli-*; do
+          for f in build/IllegalotlCli-*; do
             ditto -c -k "$f" "$f.zip"
             xcrun notarytool submit "$f.zip" --key apple.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
             rm "$f.zip"
@@ -424,12 +424,12 @@ jobs:
         if: steps.mac_signing.outputs.enabled == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Equilotl-macos-universal
+          name: Illegalotl-macos-universal
           path: |
-            build/Equilotl.dmg
-            build/EquilotlCli-x64
-            build/EquilotlCli-arm64
-            build/EquilotlCli-universal
+            build/Illegalotl.dmg
+            build/IllegalotlCli-x64
+            build/IllegalotlCli-arm64
+            build/IllegalotlCli-universal
 
   build-windows:
     runs-on: windows-latest
@@ -472,22 +472,22 @@ jobs:
         shell: msys2 {0}
         run: |
           go-winres make --product-version "git-tag"
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl.exe
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl.exe
 
       - name: Build CLI
         shell: msys2 {0}
         run: |
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli.exe
-          cp EquilotlCli.exe EquilotlCli-x64.exe # Explicit arch in the name, winget picks installers by it
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli.exe
+          cp IllegalotlCli.exe IllegalotlCli-x64.exe # Explicit arch in the name, winget picks installers by it
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Equilotl-windows
+          name: Illegalotl-windows
           path: |
-            Equilotl.exe
-            EquilotlCli.exe
-            EquilotlCli-x64.exe
+            Illegalotl.exe
+            IllegalotlCli.exe
+            IllegalotlCli-x64.exe
 
   build-windows-arm64:
     runs-on: windows-latest # No ARM64 runner needed, the ARM64 binaries are cross-compiled
@@ -532,20 +532,20 @@ jobs:
         shell: bash
         run: |
           "$(go env GOPATH)/bin/go-winres" make --arch arm64 --product-version "git-tag"
-          CGO_ENABLED=1 GOOS=windows GOARCH=arm64 CC=aarch64-w64-mingw32-clang CXX=aarch64-w64-mingw32-clang++ go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Equilotl-arm64.exe
+          CGO_ENABLED=1 GOOS=windows GOARCH=arm64 CC=aarch64-w64-mingw32-clang CXX=aarch64-w64-mingw32-clang++ go build -v -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-arm64.exe
 
       - name: Build CLI
         shell: bash
         run: |
-          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o EquilotlCli-arm64.exe
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli-arm64.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Equilotl-windows-arm64
+          name: Illegalotl-windows-arm64
           path: |
-            Equilotl-arm64.exe
-            EquilotlCli-arm64.exe
+            Illegalotl-arm64.exe
+            IllegalotlCli-arm64.exe
 
   release:
     runs-on: ubuntu-latest
@@ -559,45 +559,45 @@ jobs:
       - name: "Download Linux Artifacts"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: Equilotl-linux
+          name: Illegalotl-linux
           path: linux
 
       - name: "Download Linux ARM64 Artifacts"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: Equilotl-linux-arm64
+          name: Illegalotl-linux-arm64
           path: linux
 
       - name: "Download MacOS Artifacts"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
-          name: Equilotl-macos
+          name: Illegalotl-macos
           path: macos
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
-          name: Equilotl-macos-arm64
+          name: Illegalotl-macos-arm64
           path: macos
 
       - name: "Download MacOS DMG"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
-          name: Equilotl-macos-universal
+          name: Illegalotl-macos-universal
           path: macos
 
       - name: "Download Windows Artifacts"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: Equilotl-windows
+          name: Illegalotl-windows
           path: windows
 
       - name: "Download Windows ARM64 Artifacts"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: Equilotl-windows-arm64
+          name: Illegalotl-windows-arm64
           path: windows
 
       - name: Delete existing release
@@ -617,18 +617,18 @@ jobs:
           body: |
             This is release ${{ github.ref_name }} of Illegalcord Installer.
           files: |
-            linux/Equilotl-x11
-            linux/Equilotl-wayland
-            linux/Equilotl
-            linux/EquilotlCli-linux
-            linux/Equilotl-x11-arm64
-            linux/Equilotl-wayland-arm64
-            linux/Equilotl-arm64
-            linux/EquilotlCli-linux-arm64
-            macos/Equilotl-x64.dmg
-            macos/Equilotl-arm64.dmg
-            macos/Equilotl.dmg
-            macos/EquilotlCli-x64
-            macos/EquilotlCli-arm64
-            macos/EquilotlCli-universal
-            windows/Equilotl*.exe
+            linux/Illegalotl-x11
+            linux/Illegalotl-wayland
+            linux/Illegalotl
+            linux/IllegalotlCli-linux
+            linux/Illegalotl-x11-arm64
+            linux/Illegalotl-wayland-arm64
+            linux/Illegalotl-arm64
+            linux/IllegalotlCli-linux-arm64
+            macos/Illegalotl-x64.dmg
+            macos/Illegalotl-arm64.dmg
+            macos/Illegalotl.dmg
+            macos/IllegalotlCli-x64
+            macos/IllegalotlCli-arm64
+            macos/IllegalotlCli-universal
+            windows/Illegalotl*.exe

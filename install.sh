@@ -19,8 +19,8 @@ echo "Downloading Installer..."
 set -- "XDG_CONFIG_HOME=$XDG_CONFIG_HOME"
 
 case "$(uname -m)" in
-  aarch64|arm64) binary="EquilotlCli-linux-arm64" ;;
-  x86_64|amd64) binary="EquilotlCli-linux" ;;
+  aarch64|arm64) binary="IllegalotlCli-linux-arm64" ;;
+  x86_64|amd64) binary="IllegalotlCli-linux" ;;
   *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
 esac
 

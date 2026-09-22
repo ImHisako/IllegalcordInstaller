@@ -56,25 +56,25 @@ func installerDownloadLink(goos, goarch string, cli bool) string {
 	}
 	switch goos {
 	case "windows":
-		filename := Ternary(cli, "EquilotlCli", "Equilotl")
+		filename := Ternary(cli, "IllegalotlCli", "Illegalotl")
 		if goarch == "arm64" {
 			filename += "-arm64"
 		}
 		return BaseUrl + filename + ".exe"
 	case "darwin":
 		if cli {
-			return BaseUrl + "EquilotlCli-" + Ternary(goarch == "amd64", "x64", "arm64")
+			return BaseUrl + "IllegalotlCli-" + Ternary(goarch == "amd64", "x64", "arm64")
 		}
 		switch goarch {
 		case "amd64":
-			return BaseUrl + "Equilotl-x64.dmg"
+			return BaseUrl + "Illegalotl-x64.dmg"
 		case "arm64":
-			return BaseUrl + "Equilotl-arm64.dmg"
+			return BaseUrl + "Illegalotl-arm64.dmg"
 		default:
 			return ""
 		}
 	case "linux":
-		filename := Ternary(cli, "EquilotlCli-linux", "Equilotl")
+		filename := Ternary(cli, "IllegalotlCli-linux", "Illegalotl")
 		if goarch == "arm64" {
 			filename += "-arm64"
 		}
@@ -117,7 +117,7 @@ func UpdateSelf() error {
 		return fmt.Errorf("Failed to download installer: %s", res.Status)
 	}
 
-	tmp, err := os.CreateTemp(ownExeDir, "EquilotlUpdate")
+	tmp, err := os.CreateTemp(ownExeDir, "IllegalotlUpdate")
 	if err != nil {
 		return fmt.Errorf("Failed to create tempfile: %w", err)
 	}

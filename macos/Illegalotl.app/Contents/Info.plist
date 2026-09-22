@@ -7,13 +7,13 @@
 	<key>CFBundleDisplayName</key>
 	<string>Illegalcord Installer</string>
 	<key>CFBundleExecutable</key>
-	<string>Equilotl</string>
+	<string>Illegalotl</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.imhisako.illegalcordinstaller</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Equilotl</string>
+	<string>Illegalotl</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

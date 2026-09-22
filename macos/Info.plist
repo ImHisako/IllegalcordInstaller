@@ -3,13 +3,13 @@
 <plist version="1.0">
     <dict>
         <key>CFBundleExecutable</key>
-        <string>Equilotl</string>
+        <string>Illegalotl</string>
 
         <key>CFBundleIconFile</key>
         <string>icon.icns</string>
 
         <key>CFBundleIdentifier</key>
-        <string>org.equicord.equilotl</string>
+        <string>io.github.imhisako.illegalcordinstaller</string>
 
         <key>NSHighResolutionCapable</key>
         <true/>
