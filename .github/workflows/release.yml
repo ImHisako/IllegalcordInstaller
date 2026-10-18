@@ -11,6 +11,7 @@ env:
 
 permissions:
   contents: write
+  actions: read # SignPath fetches the unsigned artifact through the workflow token
 
 jobs:
   build-linux:
@@ -434,7 +435,24 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
+    outputs:
+      signed: ${{ steps.signpath.outcome == 'success' }}
+
     steps:
+      - name: Check Windows signing configuration
+        id: windows_signing
+        shell: pwsh
+        env:
+          SIGNPATH_API_KEY: ${{ secrets.SIGNPATH_API_KEY }}
+          SIGNPATH_ORG_ID: ${{ secrets.SIGNPATH_ORG_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SIGNPATH_API_KEY) -or [string]::IsNullOrWhiteSpace($env:SIGNPATH_ORG_ID)) {
+            "enabled=false" >> $env:GITHUB_OUTPUT
+            Write-Output "::notice::SignPath secrets are missing; publishing unsigned Windows binaries."
+          } else {
+            "enabled=true" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -480,7 +498,43 @@ jobs:
           CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli.exe
           cp IllegalotlCli.exe IllegalotlCli-x64.exe # Explicit arch in the name, winget picks installers by it
 
-      - name: Upload artifact
+      - name: Upload unsigned artifact
+        if: steps.windows_signing.outputs.enabled == 'true'
+        id: upload-unsigned
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Illegalotl-windows-unsigned
+          path: |
+            Illegalotl.exe
+            IllegalotlCli.exe
+            IllegalotlCli-x64.exe
+
+      - name: Submit SignPath signing request
+        id: signpath
+        if: steps.windows_signing.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_KEY }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'IllegalcordInstaller' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: x64
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: windows-signed/
+
+      - name: Upload signed artifact
+        if: steps.windows_signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Illegalotl-windows
+          path: |
+            windows-signed/Illegalotl.exe
+            windows-signed/IllegalotlCli.exe
+            windows-signed/IllegalotlCli-x64.exe
+
+      - name: Upload unsigned release artifact
+        if: steps.windows_signing.outputs.enabled != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Illegalotl-windows
@@ -492,7 +546,24 @@ jobs:
   build-windows-arm64:
     runs-on: windows-latest # No ARM64 runner needed, the ARM64 binaries are cross-compiled
 
+    outputs:
+      signed: ${{ steps.signpath.outcome == 'success' }}
+
     steps:
+      - name: Check Windows signing configuration
+        id: windows_signing
+        shell: pwsh
+        env:
+          SIGNPATH_API_KEY: ${{ secrets.SIGNPATH_API_KEY }}
+          SIGNPATH_ORG_ID: ${{ secrets.SIGNPATH_ORG_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SIGNPATH_API_KEY) -or [string]::IsNullOrWhiteSpace($env:SIGNPATH_ORG_ID)) {
+            "enabled=false" >> $env:GITHUB_OUTPUT
+            Write-Output "::notice::SignPath secrets are missing; publishing unsigned Windows binaries."
+          } else {
+            "enabled=true" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -539,7 +610,41 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse --short HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli-arm64.exe
 
-      - name: Upload artifact
+      - name: Upload unsigned artifact
+        if: steps.windows_signing.outputs.enabled == 'true'
+        id: upload-unsigned
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Illegalotl-windows-arm64-unsigned
+          path: |
+            Illegalotl-arm64.exe
+            IllegalotlCli-arm64.exe
+
+      - name: Submit SignPath signing request
+        id: signpath
+        if: steps.windows_signing.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_KEY }}
+          organization-id: ${{ secrets.SIGNPATH_ORG_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'IllegalcordInstaller' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
+          artifact-configuration-slug: arm64
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: windows-signed/
+
+      - name: Upload signed artifact
+        if: steps.windows_signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Illegalotl-windows-arm64
+          path: |
+            windows-signed/Illegalotl-arm64.exe
+            windows-signed/IllegalotlCli-arm64.exe
+
+      - name: Upload unsigned release artifact
+        if: steps.windows_signing.outputs.enabled != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Illegalotl-windows-arm64
@@ -616,6 +721,8 @@ jobs:
           draft: false
           body: |
             This is release ${{ github.ref_name }} of Illegalcord Installer.
+
+            ${{ needs.build-windows.outputs.signed == 'true' && needs.build-windows-arm64.outputs.signed == 'true' && 'Windows binaries are code signed via [SignPath](https://signpath.io).' || '' }}
           files: |
             linux/Illegalotl-x11
             linux/Illegalotl-wayland
