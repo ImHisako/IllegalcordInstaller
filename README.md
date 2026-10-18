@@ -15,14 +15,8 @@ Windows
 
 MacOS
 
-| | Universal | X64 | ARM64 |
-| --- | --- | --- | --- |
-| GUI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Illegalotl.dmg) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Illegalotl-x64.dmg) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/Illegalotl-arm64.dmg) |
-| CLI | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/IllegalotlCli-universal) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/IllegalotlCli-x64) | [Download](https://github.com/ImHisako/IllegalcordInstaller/releases/latest/download/IllegalotlCli-arm64) |
-
-macOS builds are published when Apple signing and notarization credentials are configured in the release workflow.
-
-The CLI builds are plain binaries, so run `chmod +x <file>` after downloading.
+No MacOS Version because i don't like Mac. 
+Jk i don't have the developer cert of apple, because their ToS and Policy is a joke. so install illegalcord from the dev build.
 
 Linux
 
