@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"net/http"
 	"os"
 	path "path/filepath"
 	"strconv"
@@ -43,7 +42,7 @@ func (di *DiscordInstall) IsOpenAsar() (retBool bool) {
 		di.isOpenAsar = &retBool
 	}()
 
-	asarFile, err := FindAsarFile(path.Join(di.appPath, ".."))
+	asarFile, err := FindAsarFile(di.resourcesPath)
 	if err != nil {
 		Log.Error(err.Error())
 		return false
@@ -70,15 +69,14 @@ func (di *DiscordInstall) InstallOpenAsar() error {
 		return errors.New("OpenAsar is already installed")
 	}
 
-	dir := path.Join(di.appPath, "..")
-	asarFile, err := FindAsarFile(dir)
+	asarFile, err := FindAsarFile(di.resourcesPath)
 	if err != nil {
 		return err
 	}
 	_ = asarFile.Close()
 
 	asarPath := asarFile.Name()
-	backupPath := path.Join(dir, "app.asar.backup")
+	backupPath := path.Join(di.resourcesPath, "app.asar.backup")
 	if err = os.Rename(asarPath, backupPath); err != nil {
 		return err
 	}
@@ -92,7 +90,7 @@ func (di *DiscordInstall) InstallOpenAsar() error {
 		}
 	}()
 
-	res, err := http.Get(OpenAsarDownloadLink)
+	res, err := httpGet(OpenAsarDownloadLink)
 	if err != nil {
 		return err
 	}
@@ -123,7 +121,7 @@ func (di *DiscordInstall) InstallOpenAsar() error {
 func (di *DiscordInstall) UninstallOpenAsar() error {
 	PreparePatch(di)
 
-	dir := path.Join(di.appPath, "..")
+	dir := di.resourcesPath
 	// .original is our old name
 	// OpenAsar's updater uses .backup, so we now also use that - .original is deprecated
 	for _, file := range []string{path.Join(dir, "app.asar.backup"), path.Join(dir, "app.asar.original")} {

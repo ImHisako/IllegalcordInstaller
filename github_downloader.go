@@ -9,12 +9,12 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	path "path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -38,15 +38,7 @@ var IsDevInstall bool
 func GetGithubRelease(url string) (*GithubRelease, error) {
 	Log.Debug("Fetching", url)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		Log.Error("Failed to create Request", err)
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", UserAgent)
-
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpGet(url)
 	if err != nil {
 		Log.Error("Failed to send Request", err)
 		return nil, err
@@ -155,7 +147,7 @@ func installLatestBuilds() (retErr error) {
 
 	Log.Debug("Downloading desktop.asar")
 
-	res, err := http.Get(downloadUrl)
+	res, err := httpGet(downloadUrl)
 	if err != nil {
 		Log.Error("Failed to download desktop.asar:", err)
 		retErr = err
@@ -163,30 +155,38 @@ func installLatestBuilds() (retErr error) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return errors.New(res.Status)
+		retErr = errors.New(res.Status)
+		Log.Error("Failed to download desktop.asar:", retErr)
+		return
 	}
-	out, err := os.OpenFile(EquicordDirectory, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	out, err := os.CreateTemp(path.Dir(EquicordDirectory), ".desktop-*.asar")
 	if err != nil {
 		Log.Error("Failed to create", EquicordDirectory+":", err)
 		retErr = err
 		return
 	}
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+		_ = os.Remove(out.Name())
+	}()
 	read, err := io.Copy(out, res.Body)
 	if err != nil {
 		Log.Error("Failed to download to", EquicordDirectory+":", err)
 		retErr = err
 		return
 	}
-	contentLength := res.Header.Get("Content-Length")
-	expected := strconv.FormatInt(read, 10)
-	if contentLength != "" && expected != contentLength {
-		err = errors.New("Unexpected end of input. Content-Length was " + contentLength + ", but I only read " + expected)
-		Log.Error(err.Error())
-		retErr = err
+	if res.ContentLength >= 0 && read != res.ContentLength {
+		retErr = fmt.Errorf("unexpected download size: expected %d bytes, read %d", res.ContentLength, read)
+		Log.Error(retErr)
 		return
 	}
+	if err := out.Chmod(0644); err != nil {
+		return err
+	}
 	if err := out.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(out.Name(), EquicordDirectory); err != nil {
 		return err
 	}
 

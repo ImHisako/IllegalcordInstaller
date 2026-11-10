@@ -108,7 +108,7 @@ func UpdateSelf() error {
 
 	ownExeDir := path.Dir(ownExePath)
 
-	res, err := http.Get(url)
+	res, err := httpGet(url)
 	if err != nil {
 		return err
 	}

@@ -86,6 +86,9 @@ func TestDownloadAndPatchRoundTrip(t *testing.T) {
 			// Exercise a chunked response without Content-Length.
 			w.(http.Flusher).Flush()
 			fmt.Fprint(w, payload)
+		case "/incomplete":
+			w.Header().Set("Content-Length", "100")
+			fmt.Fprint(w, "partial download")
 		default:
 			http.NotFound(w, r)
 		}
@@ -108,7 +111,7 @@ func TestDownloadAndPatchRoundTrip(t *testing.T) {
 	if err := os.WriteFile(appAsar, original, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := patchAppAsar(dir, false); err != nil {
+	if err := patchAppAsar(dir); err != nil {
 		t.Fatal(err)
 	}
 	if loader, err := isEquicordLoaderAppAsar(appAsar); err != nil || !loader {
@@ -118,19 +121,21 @@ func TestDownloadAndPatchRoundTrip(t *testing.T) {
 	if err != nil || !bytes.Contains(data, []byte("equicord.asar")) {
 		t.Fatalf("loader does not reference the downloaded archive: %v", err)
 	}
-	if err := unpatchAppAsar(dir, false); err != nil {
+	if err := unpatchAppAsar(dir); err != nil {
 		t.Fatal(err)
 	}
 	data, err = os.ReadFile(appAsar)
 	if err != nil || !bytes.Equal(data, original) {
 		t.Fatalf("uninstall did not restore Discord: %q, %v", data, err)
 	}
-	ReleaseData.Assets[0].DownloadURL = server.URL + "/missing"
-	if err := installLatestBuilds(); err == nil {
-		t.Fatal("missing asset was accepted")
-	}
-	data, err = os.ReadFile(EquicordDirectory)
-	if err != nil || string(data) != payload {
-		t.Fatal("HTTP error overwrote the installed client")
+	for _, endpoint := range []string{"/missing", "/incomplete"} {
+		ReleaseData.Assets[0].DownloadURL = server.URL + endpoint
+		if err := installLatestBuilds(); err == nil {
+			t.Fatalf("invalid asset at %s was accepted", endpoint)
+		}
+		data, err = os.ReadFile(EquicordDirectory)
+		if err != nil || string(data) != payload {
+			t.Fatalf("failed download from %s overwrote the installed client", endpoint)
+		}
 	}
 }

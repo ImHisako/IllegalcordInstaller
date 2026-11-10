@@ -20,7 +20,7 @@ func TestUnpatchLegacyDirectoryLoader(t *testing.T) {
 			original := []byte("original Discord archive")
 			writeTestFile(t, filepath.Join(dir, "_app.asar"), original)
 
-			if err := unpatchAppAsar(dir, false); err != nil {
+			if err := unpatchAppAsar(dir); err != nil {
 				t.Fatal(err)
 			}
 			assertTestFile(t, loader, original)
@@ -30,7 +30,7 @@ func TestUnpatchLegacyDirectoryLoader(t *testing.T) {
 				}
 			}
 			// Repair must be able to replace the legacy loader with the current format.
-			if err := patchAppAsar(dir, false); err != nil {
+			if err := patchAppAsar(dir); err != nil {
 				t.Fatal(err)
 			}
 			if ok, err := isEquicordLoaderAppAsar(loader); !ok || err != nil {
@@ -57,7 +57,7 @@ func TestUnpatchUnknownDirectoryPreservesBackup(t *testing.T) {
 			original := []byte("original Discord archive")
 			writeTestFile(t, filepath.Join(dir, "_app.asar"), original)
 
-			if err := unpatchAppAsar(dir, false); err == nil {
+			if err := unpatchAppAsar(dir); err == nil {
 				t.Fatal("unrecognized directory must not be treated as a Discord update")
 			}
 			assertTestFile(t, filepath.Join(dir, "_app.asar"), original)
