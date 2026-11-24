@@ -53,72 +53,41 @@ func ParseDiscord(p, branch string) *DiscordInstall {
 
 func FindDiscords() []any {
 	var discords []any
-	home := os.Getenv("HOME")
-
 	bases := []string{
 		"/Applications",
-		path.Join(home, "Applications"),
+		path.Join(os.Getenv("HOME"), "Applications"),
 	}
-
-	appSupportNames := map[string]string{
-		"stable": "discord",
-		"ptb":    "discordptb",
-		"canary": "discordcanary",
-		"dev":    "discorddevelopment",
-	}
+	supportBase := path.Join(os.Getenv("HOME"), "Library", "Application Support")
 
 	for branch, dirname := range macosNames {
+		foundInApps := false
+
 		for _, base := range bases {
 			p := path.Join(base, dirname)
 			if discord := ParseDiscord(p, branch); discord != nil {
 				Log.Debug("Found Discord Install at", p)
 				discords = append(discords, discord)
+				foundInApps = true
 			}
 		}
 
-		appSupport := path.Join(
-			home,
-			"Library",
-			"Application Support",
-			appSupportNames[branch],
-		)
-
-		entries, err := os.ReadDir(appSupport)
-		if err != nil {
-			continue
-		}
-
-		var latestVersion []int
-		var latestDiscord *DiscordInstall
-
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
+		if !foundInApps {
+			branchDir := "discord" + branch
+			if branch == "stable" {
+				branchDir = "discord"
 			}
 
-			version := ParseAppVersion(entry.Name())
-			if version == nil {
-				continue
+			matches, err := path.Glob(path.Join(supportBase, branchDir, "app-*", dirname))
+			if err == nil {
+				for _, match := range matches {
+					if discord := ParseDiscord(match, branch); discord != nil {
+						Log.Debug("Found Discord Install at", match)
+						discords = append(discords, discord)
+					}
+				}
 			}
-
-			p := path.Join(appSupport, entry.Name(), dirname)
-			discord := ParseDiscord(p, branch)
-			if discord == nil {
-				continue
-			}
-
-			if latestDiscord == nil || CompareAppVersion(version, latestVersion) > 0 {
-				latestVersion = version
-				latestDiscord = discord
-			}
-		}
-
-		if latestDiscord != nil {
-			Log.Debug("Found versioned Discord Install at", latestDiscord.path)
-			discords = append(discords, latestDiscord)
 		}
 	}
-
 	return discords
 }
 
