@@ -37,25 +37,11 @@ You need to install the [Go programming language](https://go.dev/doc/install) an
 <details>
 <summary>Additionally, if you're using Linux, you have to install some additional dependencies:</summary>
 
-#### Base dependencies
+The Linux GUI uses the x86-64 GLFW and ImGui libraries bundled with cimgui-go.
 
 ```sh
-apt install -y pkg-config libsdl2-dev libglx-dev libgl1-mesa-dev
-dnf install pkg-config libGL-devel libXxf86vm-devel
-```
-
-#### X11 dependencies
-
-```sh
-apt install -y xorg-dev
-dnf install libXcursor-devel libXi-devel libXinerama-devel libXrandr-devel
-```
-
-#### Wayland dependencies
-
-```sh
-apt install -y libwayland-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
-dnf install wayland-devel libxkbcommon-devel wayland-protocols-devel extra-cmake-modules
+apt install -y libgl-dev libx11-dev
+dnf install libglvnd-devel libX11-devel
 ```
 
 </details>
@@ -70,16 +56,33 @@ go mod tidy
 
 #### Build the GUI
 
-##### Windows / Mac / Linux X11
+##### Windows
+
+Install [MSYS2](https://www.msys2.org), open the **MSYS2 MINGW64** shell and run:
+
+```sh
+pacman -S --needed git make mingw-w64-x86_64-gcc mingw-w64-x86_64-go
+go install github.com/tc-hib/go-winres@v0.3.3
+export PATH="$PATH:$(go env GOPATH)/bin"
+make GUI=1
+make GUI=0
+```
+
+This writes `build/Illegalotl.exe` and `build/IllegalotlCli.exe`. The new GUI dependencies bundle native libraries for Windows x64, Linux x64, and macOS x64/ARM64. Windows and Linux ARM64 GUI builds require additional native libraries; the CLI can still be built for ARM64 with `CGO_ENABLED=0`.
+
+If you'd rather not use MSYS2, any MinGW toolchain works by pointing cgo at it, for example LLVM's clang with a MinGW sysroot:
+
+```sh
+CGO_LDFLAGS=-lwinpthread CC="clang --target=x86_64-w64-windows-gnu" CXX="clang++ --target=x86_64-w64-windows-gnu" \
+  CGO_ENABLED=1 go build -tags "static gui" -ldflags "-s -w -H=windowsgui -extldflags=-static" -o Illegalotl.exe
+```
+
+##### Mac / Linux
+
+On Linux the same binary selects X11 or Wayland at startup.
 
 ```sh
 make GUI=1
-```
-
-##### Linux Wayland
-
-```sh
-make GUI=1 WAYLAND=1
 ```
 
 #### Build the CLI

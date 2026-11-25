@@ -62,6 +62,13 @@ func IsDirectory(path string) bool {
 	return s.IsDir()
 }
 
+func ShortHash(hash string) string {
+	if len(hash) > 9 {
+		return hash[:9]
+	}
+	return hash
+}
+
 func Ternary[T any](b bool, ifTrue, ifFalse T) T {
 	if b {
 		return ifTrue
@@ -113,6 +120,19 @@ func GetBranch(name string) string {
 	return "stable"
 }
 
+func branchDisplayName(branch string) string {
+	switch branch {
+	case "ptb":
+		return "Discord PTB"
+	case "canary":
+		return "Discord Canary"
+	case "dev", "development":
+		return "Discord Development"
+	default:
+		return "Discord"
+	}
+}
+
 func Ptr[T any](v T) *T {
 	return &v
 }
@@ -122,7 +142,6 @@ func CheckIfErrIsCauseItsBusyRn(err error) error {
 		return err
 	}
 
-	
 	// bruhhhh
 	if linkError, ok := err.(*os.LinkError); ok {
 		if errno, ok := linkError.Err.(syscall.Errno); ok && errno == 32 /* ERROR_SHARING_VIOLATION */ {

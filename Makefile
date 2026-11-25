@@ -11,9 +11,8 @@ IDENTITY 	?= -
 
 GUI 		?= 0
 DMG 		?= 0
-WAYLAND 	?= 0
 
-LDFLAGS 	?= -s -w -X 'equilotl/buildinfo.InstallerGitHash=$(HASH)' -X 'equilotl/buildinfo.InstallerTag=$(VERSION)'
+LDFLAGS 	?= -s -w -X 'equilotl/buildinfo.InstallerGitHash=$(shell git rev-parse HEAD)' -X 'equilotl/buildinfo.InstallerTag=$(VERSION)'
 TAGS    	?= static
 CGO 		:= 0
 POSTFIX 	:=
@@ -35,9 +34,6 @@ TAGS 		+= cli
 POSTFIX 	:= Cli
 else
 CGO 		:= 1
-ifeq ($(WAYLAND),1)
-TAGS 		+= wayland
-endif # WAYLAND
 endif # GUI
 
 # macOS specific
@@ -49,7 +45,6 @@ endif
 all: build
 
 build:
-	$(MAKE) -s clean
 	mkdir -p build
 
 ifeq ($(PLATFORM),darwin)
@@ -72,6 +67,7 @@ ifeq ($(ARCH),universal)
 	rm build/installer-amd64 build/installer-arm64
 endif # ARCH
 ifeq ($(GUI),1)
+	rm -rf build/Illegalotl.app
 	cp -R macos/Illegalotl.app build/Illegalotl.app
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" build/Illegalotl.app/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(HASH)" build/Illegalotl.app/Contents/Info.plist
@@ -85,6 +81,7 @@ ifeq ($(DMG),1)
 ifeq ($(shell command -v create-dmg 2>/dev/null),)
 	$(error create-dmg is not installed)
 endif
+	rm -f build/Illegalotl.dmg
 	create-dmg \
 		--volname "Illegalcord Installer" \
 		--volicon macos/dmg.icns \
@@ -136,7 +133,6 @@ help:
 		'Options:' \
 		'  GUI=1       Build with GUI support' \
 		'  DMG=1       Build DMG for macOS' \
-		'  WAYLAND=1        Build with Wayland support for Linux' \
 		'  PLATFORM=<os>    Target platform (darwin, windows, linux)' \
 		'  ARCH=<arch>      Target architecture (amd64, arm64, 386, universal (macOS only))' \
 		'  CC=<cc> CXX=<c++>  C/C++ compilers, for a GUI build that cross-compiles' \
