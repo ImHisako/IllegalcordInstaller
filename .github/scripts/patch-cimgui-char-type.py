@@ -13,3 +13,15 @@ for old, new in (
         raise SystemExit(f"cimgui-go string helper signature not found: {old.decode()}")
 
 source.write_bytes(content)
+
+# Plain C char is unsigned on Linux ARM64. Preserve the generated int8 vector
+# API by converting its data pointer through unsafe.Pointer on every platform.
+source = Path("vendor/github.com/AllenDang/cimgui-go/imgui/funcs.go")
+content = source.read_bytes()
+old = b"(*int8)(result.Data)"
+new = b"(*int8)(unsafe.Pointer(result.Data))"
+if old in content:
+    content = content.replace(old, new)
+elif new not in content:
+    raise SystemExit("cimgui-go char vector conversion not found")
+source.write_bytes(content)
