@@ -25,8 +25,8 @@ case "$target" in
       -DCMAKE_C_COMPILER=aarch64-w64-mingw32-clang
       -DCMAKE_CXX_COMPILER=aarch64-w64-mingw32-clang++
       -DCMAKE_RC_COMPILER=aarch64-w64-mingw32-windres
-      -DCMAKE_AR=llvm-ar
-      -DCMAKE_RANLIB=llvm-ranlib
+      "-DCMAKE_AR=$(cygpath -m "$(command -v llvm-ar)")"
+      "-DCMAKE_RANLIB=$(cygpath -m "$(command -v llvm-ranlib)")"
     )
     system_libs='-lgdi32 -lopengl32 -limm32'
     ;;
