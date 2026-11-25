@@ -47,6 +47,9 @@ jobs:
       - name: Install Go dependencies
         run: go get -v
 
+      - name: Recreate vendor dependencies
+        run: go mod vendor
+
       - name: Build GUI (X11)
         run:
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -v -tags static -ldflags "-s
@@ -90,7 +93,7 @@ jobs:
             IllegalotlCli-linux
 
   build-linux-arm64:
-    runs-on: ubuntu-24.04-arm # Native ARM64 runner, the GUI needs ARM64 X11/Wayland/GL libraries
+    runs-on: ubuntu-24.04-arm # Build the GUI libraries from source for ARM64
 
     steps:
       - name: Checkout code
@@ -110,22 +113,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-arm64-go-
 
-      - name: Install Linux dependencies
+      - name: Install Linux GUI dependencies
         run: |
           sudo apt update
-          sudo apt install -y pkg-config libsdl2-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libglx-dev libgl1-mesa-dev libxxf86vm-dev libglfw3-dev libwayland-dev libwayland-egl1 libegl-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
+          sudo apt install -y build-essential cmake pkg-config libsdl2-dev libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libglx-dev libgl1-mesa-dev libxxf86vm-dev libwayland-dev libwayland-egl1 libegl-dev libxkbcommon-dev wayland-protocols extra-cmake-modules
 
       - name: Install Go dependencies
         run: go get -v
 
-      - name: Cache ARM64 GUI libraries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: build/native-arm64
-          key: ${{ runner.os }}-arm64-gui-${{ hashFiles('go.sum', '.github/scripts/build-arm64-gui-libs.sh') }}
+      - name: Recreate vendor dependencies
+        run: |
+          go mod vendor
+          git apply --ignore-whitespace patches/linux-arm64.patch
+          python .github/scripts/patch-cimgui-char-type.py
 
       - name: Build ARM64 GUI libraries
-        run: bash .github/scripts/build-arm64-gui-libs.sh linux
+        run: bash .github/scripts/build-linux-arm64-gui.sh
 
       - name: Build GUI (X11)
         run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags static -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-x11-arm64
@@ -584,7 +587,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-arm64-go-
 
-      # The GUI needs a C/C++ compiler targeting ARM64 Windows, llvm-mingw provides one
       - name: Install llvm-mingw
         shell: pwsh
         run: |
@@ -600,17 +602,18 @@ jobs:
         shell: bash
         run: |
           go get -v
-          go install github.com/tc-hib/go-winres@d743268d7ea168077ddd443c4240562d4f5e8c3e  # v0.3.3
+          go install github.com/tc-hib/go-winres@d743268d7ea168077ddd443c4240562d4f5e8c3e
 
-      - name: Cache ARM64 GUI libraries
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: build/native-arm64
-          key: ${{ runner.os }}-arm64-gui-${{ hashFiles('go.sum', '.github/scripts/build-arm64-gui-libs.sh') }}
+      - name: Recreate vendor for ARM64 GUI
+        shell: bash
+        run: |
+          go mod vendor
+          git apply --ignore-whitespace patches/windows-arm64.patch
+          python .github/scripts/patch-cimgui-char-type.py
 
       - name: Build ARM64 GUI libraries
         shell: bash
-        run: bash .github/scripts/build-arm64-gui-libs.sh windows
+        run: bash .github/scripts/build-windows-arm64-gui.sh
 
       - name: Build GUI
         shell: bash
