@@ -2,6 +2,7 @@
 
 name: Release
 on:
+  workflow_dispatch:
   push:
     tags:
       - v*
@@ -117,6 +118,15 @@ jobs:
       - name: Install Go dependencies
         run: go get -v
 
+      - name: Cache ARM64 GUI libraries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/native-arm64
+          key: ${{ runner.os }}-arm64-gui-${{ hashFiles('go.sum', '.github/scripts/build-arm64-gui-libs.sh') }}
+
+      - name: Build ARM64 GUI libraries
+        run: bash .github/scripts/build-arm64-gui-libs.sh linux
+
       - name: Build GUI (X11)
         run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags static -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-x11-arm64
 
@@ -127,7 +137,7 @@ jobs:
         run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "static combined" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o Illegalotl-arm64
 
       - name: Build CLI
-        run: CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli-linux-arm64
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -tags "cli" -ldflags "-s -w -X 'equilotl/buildinfo.InstallerGitHash=$(git rev-parse HEAD)' -X 'equilotl/buildinfo.InstallerTag=${{ github.ref_name }}'" -o IllegalotlCli-linux-arm64
 
       - name: Update executable
         run: |
@@ -592,6 +602,16 @@ jobs:
           go get -v
           go install github.com/tc-hib/go-winres@d743268d7ea168077ddd443c4240562d4f5e8c3e  # v0.3.3
 
+      - name: Cache ARM64 GUI libraries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/native-arm64
+          key: ${{ runner.os }}-arm64-gui-${{ hashFiles('go.sum', '.github/scripts/build-arm64-gui-libs.sh') }}
+
+      - name: Build ARM64 GUI libraries
+        shell: bash
+        run: bash .github/scripts/build-arm64-gui-libs.sh windows
+
       - name: Build GUI
         shell: bash
         run: |
@@ -648,7 +668,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: [build-linux, build-linux-arm64, build-mac, build-mac-dmg, build-windows, build-windows-arm64]
-    if: always() && needs.build-linux.result == 'success' && needs.build-linux-arm64.result == 'success' && needs.build-windows.result == 'success' && needs.build-windows-arm64.result == 'success'
+    if: always() && startsWith(github.ref, 'refs/tags/') && needs.build-linux.result == 'success' && needs.build-linux-arm64.result == 'success' && needs.build-windows.result == 'success' && needs.build-windows-arm64.result == 'success'
 
     steps:
       - name: Checkout code

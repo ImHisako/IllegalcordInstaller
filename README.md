@@ -68,7 +68,7 @@ make GUI=1
 make GUI=0
 ```
 
-This writes `build/Illegalotl.exe` and `build/IllegalotlCli.exe`. The new GUI dependencies bundle native libraries for Windows x64, Linux x64, and macOS x64/ARM64. Windows and Linux ARM64 GUI builds require additional native libraries; the CLI can still be built for ARM64 with `CGO_ENABLED=0`.
+This writes `build/Illegalotl.exe` and `build/IllegalotlCli.exe`. The GUI dependencies bundle native libraries for Windows x64, Linux x64, and macOS x64/ARM64. The release workflow builds the additional native libraries needed for Windows and Linux ARM64 GUIs from the verified Go module sources. Local ARM64 GUI builds need these libraries too; the CLI can be built for ARM64 with `CGO_ENABLED=0`.
 
 If you'd rather not use MSYS2, any MinGW toolchain works by pointing cgo at it, for example LLVM's clang with a MinGW sysroot:
 
